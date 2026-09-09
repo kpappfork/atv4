@@ -261,6 +261,45 @@ checks.push(
   ['boots with valid stored settings', bootsWith(JSON.stringify({ userQuality: { id: '720p', name: '720' } }))],
 );
 
+// A refresh that never reached the server said nothing about the credentials,
+// but every caller treated it as "make the user activate again". One blip while
+// refreshing — waking from sleep before the network is up, say — signed the user
+// out with a perfectly good refresh token.
+function sessionKeptWhen(status, body) {
+  const expired = String(Math.floor(Date.now() / 1000) - 3600);
+  const s = new Map([
+    ['localStorage_accessToken', 'old'],
+    ['localStorage_refreshToken', 'good-refresh'],
+    ['localStorage_tokenExpires', expired],
+  ]);
+  const sb = { console: { log() {}, error() {}, warn() {} },
+    setTimeout() {}, setInterval() {}, clearTimeout() {}, clearInterval() {},
+    App: {}, Device: sandbox.Device,
+    userDefaults: { getData: (k) => s.get(k), setData: (k, v) => s.set(k, v), removeData: (k) => s.delete(k) },
+    localStorage: { getItem: (k) => s.get(k) ?? null, setItem: (k, v) => s.set(k, v), removeItem: (k) => s.delete(k) },
+    DOMParser: class { parseFromString() { return {}; } },
+    navigationDocument: { documents: [], pushDocument() {}, replaceDocument() {} },
+    getActiveDocument: () => ({}), evaluateScripts: () => {} };
+  sb.XMLHttpRequest = class {
+    constructor() { this.status = 0; this.responseText = ''; }
+    open() {} setRequestHeader() {} abort() {}
+    send() { this.status = status; this.responseText = body; if (this.onload) this.onload(); }
+  };
+  sb.globalThis = sb;
+  vm.runInNewContext(readFileSync(join(ROOT, 'bundle.js'), 'utf8'), sb);
+  sb.showActivationPage = () => {};
+  return sb.Auth.check();
+}
+
+checks.push(
+  ['auth: a successful refresh keeps the session', sessionKeptWhen(200, '{"access_token":"a","refresh_token":"b","expires_in":86400}')],
+  ['auth: network failure keeps the session', sessionKeptWhen(0, '')],
+  ['auth: 502 keeps the session', sessionKeptWhen(502, '')],
+  ['auth: an unreadable 200 keeps the session', sessionKeptWhen(200, '<html>')],
+  ['auth: 400 invalid_grant signs out', !sessionKeptWhen(400, '{"error":"invalid_grant"}')],
+  ['auth: 401 signs out', !sessionKeptWhen(401, '{"error":"unauthorized"}')],
+);
+
 const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
 if (failed.length) {
   console.error(`✖ behaviour check failed: ${failed.join('; ')}`);

@@ -1,26 +1,66 @@
 var UserInfo;
 
 var Auth = (function() {
+	// Distinguishes "the server rejected this refresh token" from "the request did
+	// not get through". Both used to return false, and every caller treats false as
+	// "make the user activate again" — so one network blip while refreshing signed
+	// the user out even though their credentials were still good. Waking from sleep
+	// before the network is up hits this reliably.
+	const REFRESH_OK = 'ok';
+	const REFRESH_REJECTED = 'rejected';   // credentials are genuinely no longer valid
+	const REFRESH_UNREACHABLE = 'unreachable';   // transient: keep the session
+
+	var retryTimer;
+
 	function refreshToken() {
-		var refreshToken = AppStorage.getItem(KEYS.refreshToken);
-		var xhr = API.getRefreshToken(refreshToken);
-		if (xhr.status == 200) {
-			console.log("RefreshToken:");
-			console.log(xhr.responseText);
-			var json = Utils.parseJSON(xhr);
-			if (!json || !json.access_token) {
-				authErrors.push('RefreshToken: malformed response');
-				return false;
-			}
-			updateStorage(json);
-			API.setToken(json.access_token);
-			Log.sendLog('RefreshToken done');
-			return true;
+		var stored = AppStorage.getItem(KEYS.refreshToken);
+		if (!stored) {
+			authErrors.push('RefreshToken: none stored');
+			return REFRESH_REJECTED;
 		}
+
+		var xhr = API.getRefreshToken(stored);
+
+		if (xhr.status == 200) {
+			var json = Utils.parseJSON(xhr);
+			if (json && json.access_token) {
+				updateStorage(json);
+				API.setToken(json.access_token);
+				Log.sendLog('RefreshToken done');
+				return REFRESH_OK;
+			}
+			// A 200 we cannot read is not proof the credentials are bad.
+			authErrors.push('RefreshToken: malformed 200 response');
+			return REFRESH_UNREACHABLE;
+		}
+
 		var detail = 'RefreshToken status: ' + xhr.status + ' ' + (xhr.responseText || 'null') + ', state: ' + xhr.readyState;
 		authErrors.push(detail);
-		Log.sendLog(detail)
-		return false;
+		Log.sendLog(detail);
+
+		// Only an explicit rejection means re-activation. Status 0 is a failed
+		// request, and 5xx is the server having a bad day; neither says anything
+		// about the token.
+		if (xhr.status == 400 || xhr.status == 401) { return REFRESH_REJECTED; }
+		return REFRESH_UNREACHABLE;
+	}
+
+	// While unreachable, keep trying quietly rather than waiting for the hourly
+	// check — the session is intact and only needs the network to come back.
+	function scheduleRetry() {
+		if (retryTimer) { return; }
+		retryTimer = setInterval(function() {
+			var outcome = refreshToken();
+			if (outcome === REFRESH_OK) {
+				console.log('Deferred token refresh succeeded');
+				clearInterval(retryTimer);
+				retryTimer = undefined;
+			} else if (outcome === REFRESH_REJECTED) {
+				clearInterval(retryTimer);
+				retryTimer = undefined;
+				showActivationPage();
+			}
+		}, 60000);
 	}
 
 	function updateStorage(json, userDefaults = true) {
@@ -31,6 +71,19 @@ var Auth = (function() {
 			AppStorage.setData(KEYS.accessToken, json.access_token);
 			AppStorage.setData(KEYS.refreshToken, json.refresh_token);
 		}
+	}
+
+	function handleRefresh() {
+		var outcome = refreshToken();
+		if (outcome === REFRESH_OK) { return true; }
+		if (outcome === REFRESH_UNREACHABLE) {
+			// Keep the session. Requests will fail while the network is down and
+			// the user gets a retryable error, which beats losing the login.
+			console.log('Token refresh unreachable — keeping the session and retrying');
+			scheduleRetry();
+			return true;
+		}
+		return false;
 	}
 
 	return {
@@ -56,7 +109,7 @@ var Auth = (function() {
 				console.log("Try to refresh token");
 				authErrors.push('Expires. Try to refresh token');
 				Log.sendLog('Expires. Try to refresh token.')
-				return refreshToken();
+				return handleRefresh();
 			}
 			API.setToken(_accessToken)
 			var xhr = API.checkAuth();
@@ -71,7 +124,7 @@ var Auth = (function() {
 				Log.sendLog('Token a status: ' + xhr.status + ' ' + xhr.responseText)
 			} else { return true; }
 			
-			return refreshToken();
+			return handleRefresh();
 		},
 	
 		accessToken(code, callback) {
