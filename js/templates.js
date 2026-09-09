@@ -20,7 +20,6 @@ var Templates = {
                         <menuItem id = "Search"><title>Поиск</title></menuItem>
                         <menuItem id = "MoviesPage" autoHighlight="true"><title>Фильмы</title></menuItem>
                         <menuItem id = "ShowsPage"><title>Сериалы</title></menuItem>
-                        <menuItem id = "MoreTypes"><title>Ещё</title></menuItem>
                         <menuItem id = "MySubscribes"><title>Мои</title></menuItem>
                         <menuItem id = "AllMovies"><title>Библиотека</title></menuItem>
                         <menuItem id = "TV"><title>ТВ</title></menuItem>
@@ -441,19 +440,6 @@ var Templates = {
                 </document>`;
     },
 
-    typesPage(rows) {
-        return `<document>
-                    <listTemplate>
-                        <banner><title>Ещё</title></banner>
-                        <list>
-                            <section>
-                                ${rows}
-                            </section>
-                        </list>
-                    </listTemplate>
-                </document>`;
-    },
-
     TVPage(channels) {
         return `<document>
                     <head>
@@ -701,11 +687,6 @@ var Templates = {
                         <img src ="${Utils.replaceCdn(channel.logos.s)}" width="160" height="120" />
                         <title>${channel.title}</title>
                     </lockup>`;
-        },
-        typeRow(type) {
-            return `<listItemLockup onselect="KP.typePage('${encodeURIComponent(type.id)}', '${encodeURIComponent(type.title)}')">
-                        <title>${Utils.escapeText(type.title)}</title>
-                    </listItemLockup>`;
         },
         playlists(item) {
             var title = item.title.replace(/"/g, "").replace(/>/g, "&lt;").replace(/</g, "&gt;").replace(/'/g, "").replace(/[\r\n]+/gm, " ");
