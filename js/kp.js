@@ -45,12 +45,16 @@ var KP = (function() {
     }
 
     function getItemsTemplate(result, itemToLoad, labrary) {
+        // result can be the raw xhr when the body was empty or unparseable.
+        if (!result || typeof result !== 'object') { return []; }
+        var items = Array.isArray(result.items) ? result.items : [];
+        var history = Array.isArray(result.history) ? result.history : [];
         if (itemToLoad.id == 'collections') {
-            var movies = result.items.map(item => Templates.fragments.itemCollection(item));
+            var movies = items.map(item => Templates.fragments.itemCollection(item));
         } else if (itemToLoad.id == 'history') {
-            var movies = result.history.map(history => Templates.fragments.itemPoster(history.item, null, null, null, history));
+            var movies = history.map(history => Templates.fragments.itemPoster(history.item, null, null, null, history));
         } else {
-            var movies = result.items.map(item => Templates.fragments.itemPoster(item));
+            var movies = items.map(item => Templates.fragments.itemPoster(item));
         }
         if (result.pagination && result.pagination.total != result.pagination.current && result.pagination.total != 0) {
             var nextPage = result.pagination.current + 1;
@@ -158,7 +162,7 @@ var KP = (function() {
         var settings = AppSettings.getAll();
         doc.addEventListener("load", function() {
             Network.loadItemsFrom(itemsToLoad[0], function(result, options) {
-                if (result == undefined) { return }
+                if (!result || !Array.isArray(result.items)) { return }
                 console.log(result)
                 if (settings.animeIsHidden.id) {
                     Utils.hideAnime(result, options);
@@ -184,7 +188,7 @@ var KP = (function() {
                 for (var index in itemsToLoad) {
                     if (index == 0) { continue }
                     Network.loadItemsFrom(itemsToLoad[index], function(result, options) {
-                        if (!result || !options) { return }
+                        if (!result || !options || !Array.isArray(result.items)) { return }
                         if (options.id == "unwatched") {
                             saveTopShelf(result.items, topShelfOptions.unwatched, options.title);
                         }
@@ -207,7 +211,7 @@ var KP = (function() {
         doc.addEventListener("appear", function() {
                 Network.loadItemsFrom(itemsToLoad[5], function(result, options) {
                     console.log(result);
-                    if (!result || !options) { return }
+                    if (!result || !options || !Array.isArray(result.items)) { return }
                     if (currentType != options.type) { return }
                     saveTopShelf(result.items, topShelfOptions.unwatched, itemsToLoad[5].title);
                     if (result.items.length > 0) {

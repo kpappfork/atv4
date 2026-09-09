@@ -28,7 +28,9 @@ var Network = (function() {
     return {
         loadItemsFrom(options, callback, ignoreCache = false) {
             var page = options.page || 0
-            var key = options.items + options.from + options.id + options.type + 'page' + page
+            var filterKey = '';
+            try { filterKey = options.filters ? JSON.stringify(options.filters) : ''; } catch (e) { filterKey = ''; }
+            var key = options.items + options.from + options.id + options.type + 'page' + page + filterKey
             var result = Cache.get(key);
             if (result != undefined && !ignoreCache) {
                 console.log('Loading "' + key + '" from cache');
@@ -46,6 +48,11 @@ var Network = (function() {
                 } else if (status == 200) {
                     var parsed = xhr.responseText ? Utils.parseJSON(xhr) : xhr;
                     var unparseable = (parsed === undefined);
+                    // An empty or unparseable body falls back to the xhr itself so
+                    // callers checking result.status keep working — but that object
+                    // must never be cached, or every revisit inside the 60s window
+                    // replays it to callers expecting result.items.
+                    var isFallback = unparseable || !xhr.responseText;
                     if (unparseable) {
                         // Pass the xhr through, matching what the empty-body case
                         // already does — callers that check result.status still work,
@@ -60,7 +67,7 @@ var Network = (function() {
                         showErrorMessage(result.error)
                         if (callback) { callback(null, null, xhr) }
                     } else {
-                        if (!unparseable) { Cache.set(key, result, 60); }
+                        if (!isFallback) { Cache.set(key, result, 60); }
                         if (callback) { callback(result, options) }
                     }
                 } else {

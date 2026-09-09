@@ -173,6 +173,33 @@ checks.push(
   ['topshelf: item with no posters is skipped', topShelfSurvives(null)],
 );
 
+// An empty or unparseable body falls back to the xhr. Caching that object meant
+// every revisit within 60s replayed it to callers expecting result.items, which
+// threw and left the page blank — reachable by simply revisiting a tab.
+function cachesFallback() {
+  const o = { items: 'items', type: 'movie', from: 'hot', id: 'cachetest', title: 'x' };
+  net.response = { status: 200, responseText: '' };
+  sandbox.Network.loadItemsFrom(o, () => {});
+  net.response = { status: 200, responseText: '{"items":[{"id":1}]}' };
+  let second;
+  sandbox.Network.loadItemsFrom(o, (r) => { second = r; });
+  return !(second && Array.isArray(second.items));
+}
+function cachesValidData() {
+  const o = { items: 'items', type: 'serial', from: 'hot', id: 'cachetest2', title: 'x' };
+  net.response = { status: 200, responseText: '{"items":[{"id":9}]}' };
+  sandbox.Network.loadItemsFrom(o, () => {});
+  net.response = { status: 500, responseText: '' };
+  let second;
+  sandbox.Network.loadItemsFrom(o, (r) => { second = r; });
+  return !!(second && Array.isArray(second.items));
+}
+
+checks.push(
+  ['cache: a fallback response is never cached', !cachesFallback()],
+  ['cache: valid data is still cached', cachesValidData()],
+);
+
 const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
 if (failed.length) {
   console.error(`✖ behaviour check failed: ${failed.join('; ')}`);
