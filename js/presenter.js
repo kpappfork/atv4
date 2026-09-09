@@ -27,7 +27,7 @@ var Presenter = {
     },
 
     makeDocument(resource, replace = false) {
-        if (replace) { resource = resource.replace(/&/g,"&amp;").replace(/'/g,"&apos;"); }
+        if (replace) { resource = Utils.escapeForParser(resource); }
         if (!Presenter.parser) {
             Presenter.parser = new DOMParser();
         }

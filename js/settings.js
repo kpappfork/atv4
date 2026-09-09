@@ -52,8 +52,8 @@ var AppSettings = (function () {
     }
 
     const defaults = (function () {
-        const val = (parseInt(Device.systemVersion) >= 13) ? Object.assign({}, defaults12, defaults13) : defaults12;
-        return (Device.appIdentifier.includes('octavian') && Device.appVersion >= 6) || (Device.appIdentifier.includes('qinoa') && Device.appVersion >= 25) ? Object.assign(val, defaultsMicro6) : val;
+        const val = (parseInt(Device.systemVersion) >= 13) ? Object.assign({}, defaults12, defaults13) : Object.assign({}, defaults12);
+        return (Device.appIdentifier.includes('octavian') && Device.appVersion >= 6) || (Device.appIdentifier.includes('qinoa') && Device.appVersion >= 25) ? Object.assign({}, val, defaultsMicro6) : val;
     }());
 
     function checkKeyValidity(key) {
@@ -149,8 +149,10 @@ var AppSettings = (function () {
             AppStorage.removeData(KEYS.defaultBootUrlDenied)
         },
 
+        // `process.env.*` below is replaced with literals by build/build.mjs; in the
+        // un-bundled js/ path there is no `process`, hence the typeof guards.
         populate(object) {
-            if (process.env.API_ENCODED) {
+            if (typeof process !== 'undefined' && process.env && process.env.API_ENCODED) {
                 const a = Utils.getByKey(process.env.API_ENCODED, KINOPUB.clientSecret);
                 KINOPUB.apiBase = a + "/v1/";
                 KINOPUB.apiAuth = a + "/oauth2/";
@@ -159,7 +161,7 @@ var AppSettings = (function () {
                 KINOPUB.proxyUrl = a;
             }
 
-            if (process.env.API_LEGACY_ENCODED) {
+            if (typeof process !== 'undefined' && process.env && process.env.API_LEGACY_ENCODED) {
                 const u = Utils.getByKey(process.env.API_LEGACY_ENCODED, KINOPUB.clientSecret);
                 KINOPUB.apiBase = KINOPUB.apiBase.replace(KINOPUB.proxyUrl, u);
                 KINOPUB.apiAuth = KINOPUB.apiAuth.replace(KINOPUB.proxyUrl, u);
@@ -169,7 +171,7 @@ var AppSettings = (function () {
                 KINOPUB.proxyUrl = u;
             }
 
-            if (process.env.API_EXT2_LEGACY) {
+            if (typeof process !== 'undefined' && process.env && process.env.API_EXT2_LEGACY) {
                 const b = Utils.getByKey(process.env.API_EXT2_LEGACY, KINOPUB.clientSecret);
                 KINOPUB.apiBaseExt2 = b + "/api2/v1.1/";
             }

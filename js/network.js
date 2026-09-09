@@ -26,28 +26,32 @@ var Network = (function() {
     }
 
     return {
-        loadItemsFrom(options, callback, skipCache = false) {
+        loadItemsFrom(options, callback, ignoreCache = false) {
             var page = options.page || 0
             var key = options.items + options.from + options.id + options.type + 'page' + page
             var result = Cache.get(key);
-            if (result != undefined && !skipCache) {
+            if (result != undefined && !ignoreCache) {
                 console.log('Loading "' + key + '" from cache');
                 if (callback) { callback(result, options) };
                 return;
             }
 
-            _callback = function(xhr) {
-                var json = { status: 0 }
+            var _callback = function(xhr) {
                 var status = xhr.status;
-                if (xhr.status == 0 && JSON.parse(xhr.responseText)) {
-                    json = JSON.parse(xhr.responseText);
-                } 
+                var json = Utils.parseJSON(xhr, { status: 0 });
                 if (status == 401 || json.status == 401) {
                     authErrors.push('Token n status: ' + xhr.status + ' ' + xhr.responseText);
                     Log.sendLog('Token n status: ' + xhr.status + ' ' + xhr.responseText)
                     if (!Auth.check()) { showActivationPage(); }
                 } else if (status == 200) {
-                    var result = xhr.responseText ? JSON.parse(xhr.responseText) : xhr;
+                    var result = xhr.responseText ? Utils.parseJSON(xhr) : xhr;
+                    if (result === undefined) {
+                        retryRequests.push({'options' : options, 'callback' : callback})
+                        Ajax.abortAll();
+                        showErrorMessage('Некорректный ответ сервера.')
+                        if (callback) { callback(null, null, xhr) }
+                        return;
+                    }
 
                     if (xhr.responseText && result && typeof result.error !== 'undefined') {
                         retryRequests.push({'options' : options, 'callback' : callback})

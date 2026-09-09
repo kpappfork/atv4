@@ -14,7 +14,7 @@ var Trakt = (function() {
     end: 'stop',
     unknown: ''
   }
-  aHeaders = function() {
+  var aHeaders = function() {
     return {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ' + AppStorage.getItem(KEYS.traktAccessToken),
@@ -22,7 +22,7 @@ var Trakt = (function() {
       'trakt-api-key': trakt.clientID
     }
   }
-  templates = {
+  var templates = {
     fragments: {
       item(result, index, type, searchType) {
         var itemToLoad = { items: 'items', from: null, id: 'search' + encodeURIComponent(result.title), title: result.title, async: false, filters: { title: encodeURIComponent(result.title), type: searchType } };
@@ -73,19 +73,36 @@ var Trakt = (function() {
   }
 
   function saveTokens(xhr) {
-    var result = JSON.parse(xhr.responseText);
-    var expiries = (Date.now() + (3600 * 24 * 90));
+    var result = Utils.parseJSON(xhr, null);
+    if (!result || !result.access_token) { return false; }
+    var expiries = Date.now() + (result.expires_in ? result.expires_in * 1000 : 3600 * 24 * 90 * 1000);
     AppStorage.setItem(KEYS.traktAccessToken, result.access_token);
     AppStorage.setItem(KEYS.traktRefreshToken, result.refresh_token);
     AppStorage.setItem(KEYS.traktExpiresToken, expiries);
+    return true;
   }
 
   return {
       checkTrakToken() {
         var token = AppStorage.getItem(KEYS.traktAccessToken);
-        var expires = AppStorage.getItem(KEYS.traktExpiresToken) || Date.now();
-        if (expires - Date.now() < (3600 * 24 * 30)) { return false; }
-        return (token && token != "undefined")
+        if (!token || token == "undefined") { return false; }
+        var expires = parseInt(AppStorage.getItem(KEYS.traktExpiresToken), 10);
+        // No expiry recorded (or an unparseable one) — trust the token and let
+        // needsRefresh() renew it on the next tick.
+        if (!expires) { return true; }
+        return expires > Date.now();
+      },
+
+      // Renew once less than 30 days of the 90-day token remain. Kept separate from
+      // checkTrakToken so an already-lapsed token still gets refreshed — the old code
+      // only refreshed while the token was still valid, so once it lapsed it stayed
+      // lapsed. This also self-heals installs that stored the bad millisecond expiry.
+      needsRefresh() {
+        var refresh = AppStorage.getItem(KEYS.traktRefreshToken);
+        if (!refresh || refresh == "undefined") { return false; }
+        var expires = parseInt(AppStorage.getItem(KEYS.traktExpiresToken), 10);
+        if (!expires) { return true; }
+        return (expires - Date.now()) < (3600 * 24 * 30 * 1000);
       },
 
       traktOauth() {
@@ -137,8 +154,8 @@ var Trakt = (function() {
           if (imdb && Trakt.checkTrakToken()) {
               imdb = Utils.fixIMDB(imdb);
               API.traktSeasonInfo(imdb, number, aHeaders(), function(xhr) {
-                  var json = JSON.parse(xhr.responseText);
-                  callback(json);
+                  var json = Utils.parseJSON(xhr, null);
+                  if (json) { callback(json); }
               });
           }
       },
@@ -146,9 +163,9 @@ var Trakt = (function() {
       traktSync(id, type, imdb, page) {
         var traktBody = {}
           if (imdb) {
-            traktBody[traktType[type]] = [{"ids": {"imdb": "tt" + id}}];
+            traktBody[traktType[type]] = [{"ids": {"imdb": "tt" + imdb}}];
           } else {
-            traktBody[traktType[type]] = [{"ids": {"trakt": + id}}];
+            traktBody[traktType[type]] = [{"ids": {"trakt": id}}];
           }
           API.traktSyncHistory(traktBody, aHeaders(), function(xhr) {
               if (page) { Trakt.makeDisabled(id, 'checkmark'); }
@@ -172,7 +189,9 @@ var Trakt = (function() {
       syncWatchlist(result) {
         if (result.item.imdb && Trakt.checkTrakToken()) {
           var imdb = Utils.fixIMDB(result.item.imdb);
-          var traktBody = {"shows": [{"ids": {"imdb": "tt" + imdb}}]}
+          var collection = Utils.isSerial(result.item) ? "shows" : "movies";
+          var traktBody = {}
+          traktBody[collection] = [{"ids": {"imdb": "tt" + imdb}}];
           if (result.item.subscribed) {
             var remove = "/remove"
           }
@@ -195,7 +214,12 @@ var Trakt = (function() {
       loadReco(type, update) {
         API.traktRecomendations(traktType[type], null, aHeaders(), function(xhr) {
           console.log(xhr);
-          var results = JSON.parse(xhr.responseText);
+          var results = Utils.parseJSON(xhr, null);
+          if (!results || !results.length) {
+              Presenter.removeLoadingTemplate();
+              showText('Рекомендации недоступны.', 'Trakt.TV');
+              return;
+          }
           var recomendations = "";
           var ids = results.map((result, index) => {
             recomendations += templates.fragments.item(result, index, type, searchType[type]);
@@ -210,7 +234,7 @@ var Trakt = (function() {
             var heroImg = '<heroImg  style="tv-placeholder:' + result.type + '" src ="' + result.url + '" width="720" height="1080" />';
             Utils.replaceElement(heroImg, null, index, ParserActions.REPLACE, doc)
             if (result.title) {
-              var title = "<title>" + (themovieDBResult.title || themovieDBResult.name) + "</title>"
+              var title = "<title>" + result.title + "</title>"
               Utils.replaceElement(title, null, "title" + index, ParserActions.REPLACE, doc)
             }
           }
@@ -236,7 +260,7 @@ var Trakt = (function() {
 
       hideReco(id, type) {
         API.traktRecomendations(traktType[type], id, aHeaders(), function(xhr) {
-          makeDisabled(id, 'remove');
+          Trakt.makeDisabled(id, 'remove');
         });
       },
 }

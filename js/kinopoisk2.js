@@ -1,7 +1,7 @@
 var Kinopoisk2 = {
     loadFromKinopoisk(kpMethod, kpID, callback, async = true) {
         var kinopoiskKey = AppStorage.getItem(KEYS.kinopoiskKey)
-        if (kinopoiskKey === undefined) { return }
+        if (!kinopoiskKey) { return }
         var kpMethod = kpMethod.replace('{id}', kpID)
         var kinopoiskAuth_url = kinopoisk2.API + kpMethod
         var kinopoiskTemplateXHR = new XMLHttpRequest();
@@ -10,7 +10,12 @@ var Kinopoisk2 = {
         kinopoiskTemplateXHR.setRequestHeader('X-API-KEY', kinopoiskKey);
         //kinopoiskTemplateXHR.timeout = 2000;
         kinopoiskTemplateXHR.onload = function() {
-            var kinopoiskResult = JSON.parse(kinopoiskTemplateXHR.responseText);
+            if (kinopoiskTemplateXHR.status != 200) {
+                console.log('Kinopoisk ' + kinopoiskTemplateXHR.status + ' for ' + kpMethod);
+                return;
+            }
+            var kinopoiskResult = Utils.parseJSON(kinopoiskTemplateXHR, null);
+            if (kinopoiskResult == null) { return; }
             console.log(kinopoiskResult);
             callback(kinopoiskResult);
         }
@@ -23,7 +28,13 @@ var Kinopoisk2 = {
     castTemplate(kinopoiskResult) {
         var kinopoiskString = '';
         kinopoiskString += '<shelf id="actors"><header><title>Актеры и съемочная группа</title></header><section>'
-        kinopoiskResult.forEach(cast => kinopoiskString += '<lockup onselect="KP.actorPage(\'' + encodeURIComponent(cast.nameRu) + '\', \'' + encodeURIComponent(cast.nameEn) + '\', \'' + cast.professionKey.toLowerCase() + '\', ' + cast.staffId + ');"><img style="border-radius: large; tv-placeholder: movie;" src="' + kinopoisk2.actorImageUrl + cast.staffId + '.jpg" width="200" height="300"/><title>' + cast.nameRu.replace(/&/g, "&amp;") + '</title><subtitle>(' + (cast.description || cast.professionText) + ')</subtitle></lockup>');
+        kinopoiskResult.forEach(cast => {
+            var nameRu = cast.nameRu || cast.nameEn || '';
+            var nameEn = cast.nameEn || cast.nameRu || '';
+            var profession = (cast.professionKey || '').toLowerCase();
+            if (!nameRu || !profession) { return; }
+            kinopoiskString += '<lockup onselect="KP.actorPage(\'' + encodeURIComponent(nameRu) + '\', \'' + encodeURIComponent(nameEn) + '\', \'' + profession + '\', ' + cast.staffId + ');"><img style="border-radius: large; tv-placeholder: movie;" src="' + kinopoisk2.actorImageUrl + cast.staffId + '.jpg" width="200" height="300"/><title>' + Utils.escapeForParser(nameRu) + '</title><subtitle>(' + (cast.description || cast.professionText || '') + ')</subtitle></lockup>';
+        });
         kinopoiskString += '</section></shelf>'
         return kinopoiskString;
     },

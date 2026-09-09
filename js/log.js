@@ -6,11 +6,19 @@ var Log = (function() {
         return date.toString();
     }
 
+    // Never put the token itself in a log payload: it leaves the device.
+    // The last 4 chars plus the length are enough to tell two tokens apart.
+    function fingerprint(token) {
+        if (!token) { return 'null'; }
+        token = String(token);
+        return '***' + token.slice(-4) + ':' + token.length;
+    }
+
     function tokensJson() {
         var _accessToken = AppStorage.getItem(KEYS.accessToken),
 			_refreshToken = AppStorage.getItem(KEYS.refreshToken),
             expires = AppStorage.getItem(KEYS.tokenExpires)
-        return {'access_token': _accessToken, 'refresh_token': _refreshToken, 'expires_in': expires, 'version': Device.appIdentifier + Device.appVersion}
+        return {'access_token': fingerprint(_accessToken), 'refresh_token': fingerprint(_refreshToken), 'expires_in': expires, 'version': Device.appIdentifier + Device.appVersion}
     }
 
     return {

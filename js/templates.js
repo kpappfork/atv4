@@ -12,7 +12,7 @@ var Templates = {
     },
 
     menuBar() {
-        return template = `
+        return `
             <document>
                 <menuBarTemplate>
                     <img src="${baseURL}img/kino-pub.png" width="606" height="168" />
@@ -31,7 +31,7 @@ var Templates = {
     },
 
     menuBarChild() {
-        return template = `
+        return `
             <document>
                 <menuBarTemplate>
                     <img src="${baseURL}img/kino-pub.png" width="606" height="168" />
@@ -958,13 +958,13 @@ var MovieTemplates = {
         var cast = { director: result.item.director, actor: result.item.cast };
         var castListAllTemplate = '';
         var castListTemplate = '';
-        for (index in cast) {
+        for (var index in cast) {
             if (!cast[index]) { continue; }
             var list = cast[index].split(', ');
             var styleTitle = (isNew) ? index == 'actor' ? 'class="info-title" style="margin-left: -32"' : 'class="info-title"' : '';
             var title = index == 'director' ? "Режиссер" : "Актеры";
             castListTemplate += '<info><header><title ' + styleTitle + '>' + title + '</title></header>';
-            for (i = 0; i < list.length; i++) {
+            for (var i = 0; i < list.length; i++) {
                 castListAllTemplate += '<lockup onselect="KP.actorPage(\'' + encodeURIComponent(list[i]) + '\', null, \'' + index + '\');"><img style="border-radius: large; tv-placeholder: movie;" src="' + KINOPUB.actorImgUrl + md5(list[i]) + '.jpg" width="200" height="300"/><title>' + list[i] + '</title><subtitle>' + title + '</subtitle></lockup>';
                 if (i > 2) { break; }
                 var styleText = (isNew) ? 'class="info-text"' : '';

@@ -7,14 +7,19 @@ var Auth = (function() {
 		if (xhr.status == 200) {
 			console.log("RefreshToken:");
 			console.log(xhr.responseText);
-			var json = JSON.parse(xhr.responseText);
+			var json = Utils.parseJSON(xhr);
+			if (!json || !json.access_token) {
+				authErrors.push('RefreshToken: malformed response');
+				return false;
+			}
 			updateStorage(json);
 			API.setToken(json.access_token);
 			Log.sendLog('RefreshToken done');
 			return true;
 		}
-		authErrors.push('RefreshToken status: ' + xhr.status + ' ' + xhr.responseText || 'null' + ', state: ' + xhr.readyState);
-		Log.sendLog('RefreshToken status: ' + xhr.status + ' ' + xhr.responseText || 'null' + ', state: ' + xhr.readyState)
+		var detail = 'RefreshToken status: ' + xhr.status + ' ' + (xhr.responseText || 'null') + ', state: ' + xhr.readyState;
+		authErrors.push(detail);
+		Log.sendLog(detail)
 		return false;
 	}
 
@@ -60,10 +65,7 @@ var Auth = (function() {
 			// 	console.log(xhr.responseText);
 			// 	authErrors.push('checkAuth status: ' + xhr.status + ' ' + xhr.responseText);
 			// }
-			var json = { status: 0 }
-			if (xhr.status == 0 && JSON.parse(xhr.responseText)) {
-				json = JSON.parse(xhr.responseText);
-			} 
+			var json = Utils.parseJSON(xhr, { status: 0 });
 			if (xhr.status == 401 || json.status == 401) {
 				authErrors.push('Token a status: ' + xhr.status + ' ' + xhr.responseText);
 				Log.sendLog('Token a status: ' + xhr.status + ' ' + xhr.responseText)
@@ -75,8 +77,9 @@ var Auth = (function() {
 		accessToken(code, callback) {
 			API.getDeviceToken(code, function(xhr) {
 				if (xhr.status == 200) {
-					var json = JSON.parse(xhr.responseText);
-					  updateStorage(json);
+					var json = Utils.parseJSON(xhr);
+					if (!json || !json.access_token) { callback(false, true); return; }
+					updateStorage(json);
 					API.setToken(json.access_token);
 					callback(true, false);
 				} else if (xhr.status == 400) {

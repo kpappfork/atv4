@@ -8,14 +8,35 @@ var Utils = {
         "'": '',
         "\\": '&#92;'
     },
+    // Escapes a fragment for LSParser/DOMParser. Unlike a blanket /&/g pass this
+    // leaves existing entities (&amp; &lt; &#171; ...) alone instead of turning
+    // them into visible "&amp;lt;" text.
+    escapeForParser(string) {
+        return String(string == null ? '' : string)
+            .replace(/&(?!(?:[a-zA-Z][a-zA-Z0-9]*|#[0-9]+|#[xX][0-9a-fA-F]+);)/g, "&amp;")
+            .replace(/'/g, "&apos;");
+    },
+    // status 0 means the request failed and responseText is "", which made every
+    // bare JSON.parse(xhr.responseText) throw inside an XHR handler.
+    parseJSON(xhr, fallback) {
+        try {
+            var text = (xhr && typeof xhr === 'object') ? xhr.responseText : xhr;
+            if (!text) { return fallback; }
+            var parsed = JSON.parse(text);
+            return (parsed === null || parsed === undefined) ? fallback : parsed;
+        } catch (e) {
+            console.log('parseJSON failed: ' + e);
+            return fallback;
+        }
+    },
     escapeHtml: function(string) {
         var self = this;
-        return String(string).replace(/[&<>`]/g, function(s) {
+        return String(string).replace(/[&<>`"'\\]/g, function(s) {
             return self._entityMap[s];
         });
     },
     decodeCharacters(text) {
-        return text.replace(/&apos;/g, '"').replace(/&lt;/g, ">").replace(/&gt;/g, "<").replace(/&laquo;/g, "«").replace(/&raquo;/g, "»").replace(/&#171;/g, "«").replace(/&#187;/g, "»").replace(/&#8211;/g, "–");
+        return String(text == null ? '' : text).replace(/&apos;/g, '"').replace(/&laquo;/g, "«").replace(/&raquo;/g, "»").replace(/&#171;/g, "«").replace(/&#187;/g, "»").replace(/&#8211;/g, "–");
     },
     splitTitle(title) {
         var titles = title.split(" / ");
@@ -24,7 +45,7 @@ var Utils = {
         return { title: title, subtitle: subtitle };
     },
     declOfNum(number, titles) {
-        cases = [2, 0, 1, 1, 1, 2];
+        var cases = [2, 0, 1, 1, 1, 2];
         return titles[(number % 100 > 4 && number % 100 < 20) ? 2 : cases[(number % 10 < 5) ? number % 10 : 5]];
     },
     rusDate(dateString, options) {
@@ -33,10 +54,10 @@ var Utils = {
         return date.toLocaleString("ru", options);
     },
     replaceText(text) {
-        return text.replace(/"/g, "").replace(/>/g, "&lt;").replace(/</g, "&gt;").replace(/'/g, "").replace(/[\r\n]+/gm, " ");
+        return String(text == null ? '' : text).replace(/"/g, "").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/'/g, "").replace(/[\r\n]+/gm, " ");
     },
     fixIMDB(id) {
-        for (i = id.toString().length; i < 7; i++) {
+        for (var i = id.toString().length; i < 7; i++) {
             id = "0" + id;
         }
         return id;
@@ -92,13 +113,10 @@ var Utils = {
         return !AppSettings.getAll().customPlayer.id;
     },
     spoiler(message, show = false) {
-        var regex = /(<spoiler>)(.*?)(<\/spoiler*>)/g;
-        let result = regex.exec(message);
-        if (result) {
-            let replace = show ? result[2] : "[SPOILER]";
-            message = message.replace(result[0], replace);
-        }
-        return message;
+        var regex = /<spoiler>(.*?)<\/spoiler*>/g;
+        return String(message == null ? '' : message).replace(regex, function(match, inner) {
+            return show ? inner : "[SPOILER]";
+        });
     },
     remove(array, element) {
         var index = array.indexOf(element);
@@ -126,16 +144,15 @@ var Utils = {
         result.items = result.items.filter(item => item.genres.map(a=>a.id).includes(23));
     },
     findFirst(arr, predicate) {
-        foundIndex = arr.findIndex(predicate);
+        var foundIndex = arr.findIndex(predicate);
         return foundIndex !== -1 ? arr[foundIndex] : null;
     },
     replaceElement(string, elementTag, elementID, action, doc) {
-        var doc = Presenter.activeParser(doc).doc
-        var lsInput = Presenter.activeParser().lsInput
-        var lsParser = Presenter.activeParser().lsParser
-        var element = (elementTag) ? doc.getElementsByTagName(elementTag).item(0) : doc.getElementById(elementID);
-        lsInput.stringData = string.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
-        lsParser.parseWithContext(lsInput, element, action);
+        var parser = Presenter.activeParser(doc);
+        var element = (elementTag) ? parser.doc.getElementsByTagName(elementTag).item(0) : parser.doc.getElementById(elementID);
+        if (!element) { console.log('replaceElement: no target for ' + (elementTag || elementID)); return; }
+        parser.lsInput.stringData = Utils.escapeForParser(string);
+        parser.lsParser.parseWithContext(parser.lsInput, element, action);
     },
     replaceCdn(url) {
         if (!KINOPUB.oldCdnUrl) {

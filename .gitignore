@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# macOS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# Build-time secrets — API_ENCODED and friends are passed to `npm run build`
+.env
+.env.*
+!.env.example
+
+# Tool output
+npm-debug.log*
+yarn-error.log*
+.eslintcache
+*.tgz
+
+# NOTE: bundle.js / bundle.min.js are generated but intentionally committed —
+# the app is served straight from the repo, so the artifacts must be in the tree.

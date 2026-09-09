@@ -12,7 +12,7 @@ var AppStorage = {
 				localStorage.setItem(key, userDefaultsValue);
 			}
 		} catch (e) {
-			console.log('Could not redefine storage data for key', key, value, e);
+			console.log('Could not redefine storage data for key', key, e);
 		}
 
 		return userDefaultsValue || localStorageValue;

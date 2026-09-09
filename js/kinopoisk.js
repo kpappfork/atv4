@@ -36,17 +36,9 @@ var Kinopoisk = {
             kinopoiskString += '<shelf id="actors"><header><title>Актеры и съемочная группа</title></header><section>'
             if (kinopoiskResult.data.creators[0]) {
                 kinopoiskResult.data.creators[0].forEach(director => kinopoiskString += '<lockup onselect="KP.actorPage(\'' + encodeURIComponent(director.nameRU) + '\', \'' + encodeURIComponent(director.nameEN) + '\',\'director\');"><img style="border-radius: large; tv-placeholder: movie;" src="' + kinopoisk.actorImageUrl + director.id + '.jpg" width="200" height="300"/><title>' + director.nameRU.replace(/&/g, "&amp;") + '</title><subtitle>Режиссер</subtitle></lockup>');
-            } else {
-                if (result.item.director != '') {
-                    directorList.forEach(director => kinopoiskString += '<lockup onselect="KP.actorPage(\'' + encodeURIComponent(director) + '\', null, \'director\');"><img style="border-radius: large; tv-placeholder: movie;" width="200" height="300"/><title>' + director + '</title><subtitle>Режиссер</subtitle></lockup>');
-                }
             }
             if (kinopoiskResult.data.creators[1]) {
                 kinopoiskResult.data.creators[1].forEach(cast => kinopoiskString += '<lockup onselect="KP.actorPage(\'' + encodeURIComponent(cast.nameRU) + '\', \'' + encodeURIComponent(cast.nameEN) + '\', \'actor\');"><img style="border-radius: large; tv-placeholder: movie;" src="' + kinopoisk.actorImageUrl + cast.id + '.jpg" width="200" height="300"/><title>' + cast.nameRU.replace(/&/g, "&amp;") + '</title><subtitle>(' + (cast.description || 'Актер') + ')</subtitle></lockup>');
-            } else {
-                if (result.item.cast != '') {
-                    castList.forEach(cast => kinopoiskString += '<lockup onselect="KP.actorPage(\'' + encodeURIComponent(cast) + '\', null, \'actor\');"><img style="border-radius: large; tv-placeholder: movie;" width="200" height="300"/><title>' + cast + '</title><subtitle>Актёр</subtitle></lockup>');
-                }
             }
             kinopoiskString += '</section></shelf>'
         }

@@ -30,16 +30,19 @@ var KPlayer = (function() {
             var video = item.videos[episode];
         }
 
-        var resolutionIndex = video.files.findIndex(file => file.quality == settings.userQuality.id);
-        if (settings.userQuality.id == quality.bestResolution.id || resolutionIndex == -1) {
+        var userQuality = settings.userQuality || quality.bestResolution;
+        var userStream = settings.userStream || {};
+        var resolutionIndex = video.files.findIndex(file => file.quality == userQuality.id);
+        if (userQuality.id == quality.bestResolution.id || resolutionIndex == -1) {
             resolutionIndex = 0;
         }
-        if (settings.userStream.code) {
-            var videoUrl = video.files[resolutionIndex].url[settings.userStream.code];
+        if (userStream.code) {
+            var videoUrl = video.files[resolutionIndex].url[userStream.code];
         } else {
             var videoUrl = video.files[resolutionIndex].url.hls4;
         }
-        if (settings.userStream.code == "hls4" && video.ac3 && settings.userAudioOption.id) {
+        if (!videoUrl) { videoUrl = video.files[resolutionIndex].url.hls4; }
+        if (userStream.code == "hls4" && video.ac3 && settings.userAudioOption.id) {
             videoUrl += '&ac3default=1';
         }
 
@@ -87,7 +90,7 @@ var KPlayer = (function() {
 
             video.files.forEach(file => {
                 var quality = `${file.quality}${file.codec == 'h265' ? ' (HDR)' : ''}`
-                mItem.playlist.items[quality] = video.audios.map((audio) => {
+                mItem.playlist.items[quality] = (video.audios || []).map((audio) => {
                     const titleParts = []
                     if (audio.type) {
                         titleParts.push(`${audio.type.title}`)
@@ -138,12 +141,12 @@ var KPlayer = (function() {
                 }
             }
             if (shuffle) {
-                var shuffled = {...item }
+                var shuffled = {...item, seasons: item.seasons.map(s => ({...s, episodes: s.episodes.slice() })) }
                 season = 0
                 episode = 0
                     //season = Math.floor(Math.random() * (result.item.seasons.length + 1))
-                for (j = season; j < shuffled.seasons.length; j++) {
-                    for (i = episode; i < shuffled.seasons[j].episodes.length; i++) {
+                for (var j = season; j < shuffled.seasons.length; j++) {
+                    for (var i = episode; i < shuffled.seasons[j].episodes.length; i++) {
                         if (j == season) { continue }
                         shuffled.seasons[j].episodes[i].seasonNumber = shuffled.seasons[j].number
                         shuffled.seasons[season].episodes.push(shuffled.seasons[j].episodes[i])
@@ -153,14 +156,12 @@ var KPlayer = (function() {
             }
             var _item = (shuffle) ? shuffled : item
             console.log('sIndex' + season + 'eIndex' + episode);
-            // FIXME: why externalID needed?
-            // var externalID = 0;
-            var externalID = _item.id;
-            for (i = episode; i < _item.seasons[season].episodes.length; i++) {
+            // externalID is used as an index into mediaItems by listenerCalled(),
+            // so it must be the position in the playlist, not the item id.
+            for (var i = episode; i < _item.seasons[season].episodes.length; i++) {
                 if (_item.seasons[season].episodes[i].files.length != 0) {
-                    var mItem = getItemForDtPlayer(_item, i, season, externalID);
+                    var mItem = getItemForDtPlayer(_item, i, season, mediaItems.length);
                     mediaItems.push(mItem);
-                    // externalID++;
                     if (!settings.userAutoPlayOption.id) {
                         break;
                     }
@@ -172,12 +173,11 @@ var KPlayer = (function() {
 
             // if play next season, add next seasons to playlist too
             if (settings.playNextSeason && settings.playNextSeason.id) {
-                for (j = season + 1; j < _item.seasons.length; j++) {
-                    for (i = 0; i < _item.seasons[j].episodes.length; i++) {
+                for (var j = season + 1; j < _item.seasons.length; j++) {
+                    for (var i = 0; i < _item.seasons[j].episodes.length; i++) {
                         if (_item.seasons[j].episodes[i].files.length != 0) {
-                            var mItem = getItemForDtPlayer(_item, i, j, externalID);
+                            var mItem = getItemForDtPlayer(_item, i, j, mediaItems.length);
                             mediaItems.push(mItem);
-                            // externalID++;
                             if (numberItems) {
                                 if (numberItems == mediaItems.length) { break };
                             }
@@ -199,12 +199,10 @@ var KPlayer = (function() {
                 episode = item.videos.findIndex(video => video.watching.status < 1);
             }
             console.log('selected episode: ' + episode)
-            var externalID = 0;
-            for (i = episode; i < item.videos.length; i++) {
+            for (var i = episode; i < item.videos.length; i++) {
                 if (item.videos[i].files) {
-                    var mItem = getItemForDtPlayer(item, i, 0, externalID);
+                    var mItem = getItemForDtPlayer(item, i, 0, mediaItems.length);
                     mediaItems.push(mItem);
-                    externalID++;
                 }
             }
         } else {
@@ -219,6 +217,7 @@ var KPlayer = (function() {
             Trakt.traktSeasonInfo(item.imdb, item.seasons[season].number, function(traktSeasonResult) {
                 if (!Utils.isNative()) { var trakts = []; }
                 item.seasons[season].episodes.forEach((episode, index) => {
+                    if (!traktSeasonResult[index] || !traktSeasonResult[index].ids) { return; }
                     episode.trakt = traktSeasonResult[index].ids.trakt;
                     if (!Utils.isNative()) {
                         var traktTmp = {
@@ -234,13 +233,20 @@ var KPlayer = (function() {
     }
 
     function listenerCalled(listener, item, event, externalID) {
-        var seasonNumber = Utils.isSerial(item) ? mediaItems[externalID].season : 0;
-        var episodeNumber = externalID ? mediaItems[externalID].video : mediaItems[0].video;
-        var video = Utils.isSerial(item) ? item.seasons[seasonNumber - 1].episodes : item.videos;
+        var index = (typeof externalID === 'number' && !isNaN(externalID) && mediaItems[externalID]) ? externalID : 0;
+        var current = mediaItems[index];
+        if (!current) { return; }
+        var seasonNumber = Utils.isSerial(item) ? current.season : 0;
+        var episodeNumber = current.video;
+        // Look the season up by its number instead of assuming seasons are a
+        // contiguous 1-based list (specials / gaps broke the old indexing).
+        var season = Utils.isSerial(item) ? item.seasons.find(s => s.number == seasonNumber) : null;
+        var video = season ? season.episodes : item.videos;
         if (listener == "timeDidChange") {
             KPlayer.playerTimeDidChange(item.id, Math.round(event.time), episodeNumber, seasonNumber)
         } else if (listener == "stateDidChange") {
-            var trakt = video[episodeNumber - 1].trakt
+            var episode = (video || []).find(e => e.number == episodeNumber);
+            var trakt = episode ? episode.trakt : undefined
             KPlayer.playerStateDidChange(event.state, item, event.elapsedTime, event.duration, seasonNumber, trakt);
             // if (event.state == "paused" || event.state == "end") {
             //   console.log(event.state)
@@ -342,7 +348,7 @@ var KPlayer = (function() {
 
         playTV(url, title, logo, subtitle, description, time) {
             mediaItems = [];
-            if (time) { url += '?archive=' + time; }
+            if (time) { url += (url.indexOf('?') == -1 ? '?' : '&') + 'archive=' + time; }
             var mItem = {
                 "id": null,
                 "imdb": null,
@@ -389,6 +395,7 @@ var KPlayer = (function() {
 
         playerStateDidChange(state, item, time, duration, season, trakt) {
             console.log("playerStateDidChange:" + state);
+            if (!item || !item.imdb) { return; }
             if (season == 0) {
                 Trakt.traktScrobble("movie", state, item.imdb, time, duration);
             } else {

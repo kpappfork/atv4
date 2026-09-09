@@ -5,7 +5,7 @@ var Ajax = (function() {
         var str = [];
         for(var p in obj)
             if (obj.hasOwnProperty(p)) {
-                str.push(encodeURIComponent(p) + "=" + obj[p]);
+                str.push(encodeURIComponent(p) + "=" + encodeURIComponent(obj[p]));
             }
         return str.join("&");
     }
@@ -23,8 +23,13 @@ var Ajax = (function() {
         var sep = (url.indexOf("?") == -1) ? "?" : "&";
         var postBody = (method == "POST") ? JSON.stringify(bParams) : null;
 
-        url = url + sep + serialize(qParams);
-        xhr.open(method, encodeURI(url), async);
+        // The query string is already component-encoded, so only the base URL
+        // goes through encodeURI() — running it over the whole thing is what used
+        // to let a "&" inside a search term truncate the parameter.
+        var queryString = serialize(qParams);
+        var requestUrl = encodeURI(url);
+        if (queryString) { requestUrl = requestUrl + sep + queryString; }
+        xhr.open(method, requestUrl, async);
         for(var name in headers) {
             if (headers.hasOwnProperty(name)) {
                 xhr.setRequestHeader(name, headers[name]);
@@ -61,6 +66,13 @@ var Ajax = (function() {
             } catch (e) {
                 // ignore
             }
+        };
+        xhr.ontimeout = function() {
+            console.log('timeout after ' + xhr.timeout + 'ms: ' + url);
+            if (callback) {
+                callback(xhr);
+            }
+            Utils.remove(requests, xhr);
         };
         xhr.onerror = function() {
             console.log('error status: ' + xhr.status + ' ' + xhr.responseText);
@@ -117,8 +129,10 @@ var Ajax = (function() {
             return _query("POST", url, headers, params, params, callback, async, true);
         },
         abortAll: function() {
-            requests.forEach(function(request) {
-                request.abort()
+            var pending = requests.slice();
+            requests = [];
+            pending.forEach(function(request) {
+                try { request.abort() } catch (e) { console.log('abort failed', e) }
             })
         }
     }

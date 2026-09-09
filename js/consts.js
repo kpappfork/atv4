@@ -135,8 +135,8 @@ const settingKeysMicro6 = {
 }
 
 const settingKeys = (function() {
-    const val = (parseInt(Device.systemVersion) >= 13) ? Object.assign({}, settingKeys12, settingKeys13) : settingKeys12;
-    return (Device.appIdentifier.includes('octavian') && Device.appVersion >= 6) || (Device.appIdentifier.includes('qinoa') && Device.appVersion >= 25) ? Object.assign(val, settingKeysMicro6) : val;
+    const val = (parseInt(Device.systemVersion) >= 13) ? Object.assign({}, settingKeys12, settingKeys13) : Object.assign({}, settingKeys12);
+    return (Device.appIdentifier.includes('octavian') && Device.appVersion >= 6) || (Device.appIdentifier.includes('qinoa') && Device.appVersion >= 25) ? Object.assign({}, val, settingKeysMicro6) : val;
 }());
 
 const referencesType = {

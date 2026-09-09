@@ -39,7 +39,7 @@ var KP = (function() {
         var lsInput = Presenter.activeParser().lsInput
         var lsParser = Presenter.activeParser().lsParser
         var element = (elementTag) ? doc.getElementsByTagName(elementTag).item(0) : doc.getElementById(elementID);
-        lsInput.stringData = string.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+        lsInput.stringData = Utils.escapeForParser(string);
         lsParser.parseWithContext(lsInput, element, action);
     }
 
@@ -183,6 +183,7 @@ var KP = (function() {
                 for (var index in itemsToLoad) {
                     if (index == 0) { continue }
                     Network.loadItemsFrom(itemsToLoad[index], function(result, options) {
+                        if (!result || !options) { return }
                         if (options.id == "unwatched") {
                             saveTopShelf(result.items, topShelfOptions.unwatched, options.title);
                         }
@@ -205,6 +206,7 @@ var KP = (function() {
         doc.addEventListener("appear", function() {
                 Network.loadItemsFrom(itemsToLoad[5], function(result, options) {
                     console.log(result);
+                    if (!result || !options) { return }
                     if (currentType != options.type) { return }
                     saveTopShelf(result.items, topShelfOptions.unwatched, itemsToLoad[5].title);
                     if (result.items.length > 0) {
@@ -302,7 +304,7 @@ var KP = (function() {
 
     function loadFiltered(itemToLoad, options, options2, callback) {
         var settings = AppSettings.getAll();
-        for (index in options) {
+        for (var index in options) {
             var key = Object.keys(options[index].filters)[0]
             if (options[index].title == "Качество" && options[index].selected == '') {
                 delete itemToLoad.filters[key];
@@ -312,6 +314,7 @@ var KP = (function() {
         }
         itemToLoad.filters['sort'] = options2[itemToLoad.options2].sort
         Network.loadItemsFrom(itemToLoad, function(result, options) {
+            if (!result || !options) { return }
             if (settings.animeIsHidden.id) {
                 Utils.hideAnime(result, options);
             }
@@ -330,7 +333,7 @@ var KP = (function() {
         doc1.addEventListener("select", function(event) {
             var selectedElement = event.target;
             if (selectedElement.tagName == "button") {
-                for (index in optionsLibrary) {
+                for (var index in optionsLibrary) {
                     if (optionsLibrary[index].title == options.title) {
                         var key = Object.keys(options.filters)[0]
                         var id = selectedElement.getAttribute('id');
@@ -350,9 +353,11 @@ var KP = (function() {
     }
 
     function saveDeviceSettings(result) {
+        if (!result) { return; }
         var activeParser = Presenter.activeParser(docs['settings'])
         if (result.device) { AppStorage.setItem(KEYS.deviceInfoID, result.device.id); }
-        var settings = result.settings || result.device.settings;
+        var settings = result.settings || (result.device && result.device.settings);
+        if (!settings || !settings.serverLocation || !settings.streamingType) { return; }
         if (currentType == 'settings') {
             var videoSettings = {
                 'mixedPlaylist': yesNo[settings.mixedPlaylist.value].name,
@@ -360,7 +365,7 @@ var KP = (function() {
                 'supportHevc': yesNo[settings.supportHevc.value].name
             }
             var userDeviceSettings = '\n<b>Поддержка 4K: ' + videoSettings.support4k + '</b>\n4K или Ultra HD — фильм в сверхвысокой четкости 2160p. Данный формат поддерживается ТОЛЬКО Apple TV 4K. Apple TV 4 данный формат не поддерживает.\n\n<b>Поддержка HEVC/HDR: ' + videoSettings.supportHevc + '</b>\nHEVC или H.265 — формат видеосжатия с применением более эффективных алгоритмов по сравнению с H.264/AVC. Данный формат поддерживается ТОЛЬКО Apple TV 4K. Apple TV 4 данный формат не поддерживает.\n\n<b>Смешанный плейлист: ' + videoSettings.mixedPlaylist + '</b>\nДанная настройка необходима только для владельцев Apple TV4K для возможности воспроизведения HEVC/HDR в SDR режиме. Крайне не советуется ставить опцию в "Нет".';
-            activeParser.lsInput.stringData = userDeviceSettings.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+            activeParser.lsInput.stringData = Utils.escapeForParser(userDeviceSettings);
             activeParser.lsParser.parseWithContext(activeParser.lsInput, activeParser.doc.getElementById("userDeviceSettings"), 2);
         }
         settings.serverLocation.value.forEach(server => {
@@ -423,7 +428,7 @@ var KP = (function() {
                 var lsParser = domImplementation.createLSParser(1, null);
                 var lsInput = domImplementation.createLSInput();
                 var stringData = '<img src="' + poster + '"/>'
-                lsInput.stringData = stringData.replace(/&/g, "&amp;").replace(/'/g, "&apos;");;
+                lsInput.stringData = Utils.escapeForParser(stringData);;
                 lsParser.parseWithContext(lsInput, doc.getElementsByTagName("background").item(0), 2);
                 uberTrailerPlayer.stop();
             }
@@ -447,6 +452,7 @@ var KP = (function() {
             for (var index in itemsToLoad) {
                 Network.loadItemsFrom(itemsToLoad[index], function(result, options) {
                     console.log(result);
+                    if (!result || !result.items || !options) { return }
                     var key = options.from == referencesType.server ? settingKeys.userServer : settingKeys.userStream
                     var values = {};
                     result.items.forEach(item => values[item.id] = item);
@@ -527,6 +533,7 @@ var KP = (function() {
             currentType = 'nextPage';
             Presenter.showLoading('Загрузка результатов');
             Network.loadItemsFrom(options, function(result, options) {
+                if (!result || !options) { Presenter.removeLoadingTemplate(); return }
                 if (settings.animeIsHidden.id) {
                     Utils.hideAnime(result, options);
                 }
@@ -586,7 +593,7 @@ var KP = (function() {
                             } else {
                                 var item = doc.getElementById('lastEpisodeButton');
                             }
-                            lsInput.stringData = updateString.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+                            lsInput.stringData = Utils.escapeForParser(updateString);
                             lsParser.parseWithContext(lsInput, item, 5);
                         });
                     }
@@ -618,7 +625,7 @@ var KP = (function() {
                 if (json.item.age_rating >= 0) {
                     cachedResult.item.age_rating = json.item.age_rating
                     var ageBadge = MovieTemplates.fragments.badge(json.item.age_rating + '+');
-                    lsInput.stringData = ageBadge.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+                    lsInput.stringData = Utils.escapeForParser(ageBadge);
                     lsParser.parseWithContext(lsInput, doc.getElementById('badges'), 1);
 
                     lsInput.stringData = "<text id=\"age\">" + json.item.age_rating + "+</text>";
@@ -634,7 +641,7 @@ var KP = (function() {
                     var item = { title: "В подборках", id: "collections" }
                     var options = { movies: collections.join(''), item: item };
                     var shelf = Templates.fragments.itemsShelf(options);
-                    lsInput.stringData = shelf.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+                    lsInput.stringData = Utils.escapeForParser(shelf);
                     lsParser.parseWithContext(lsInput, doc.getElementById('ratings'), 4);
                 }
             });
@@ -644,14 +651,14 @@ var KP = (function() {
                     var similarResult = JSON.parse(xhr.responseText);
                     var similarMovies = MovieTemplates.fragments.similar(similarResult);
                     if (similarMovies != "") {
-                        lsInput.stringData = similarMovies.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+                        lsInput.stringData = Utils.escapeForParser(similarMovies);
                         lsParser.parseWithContext(lsInput, doc.getElementById('ratings'), 3);
                     } else {
                         API.getSimilarInGenre(result.item.genres[0].id, result.item.type, function(xhr) {
                             var moreResult = JSON.parse(xhr.responseText);
                             var moreMovies = MovieTemplates.fragments.similar(moreResult, 'Больше из жанра ' + moreResult.items[0].genres[0].title);
                             if (moreMovies != "") {
-                                lsInput.stringData = moreMovies.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+                                lsInput.stringData = Utils.escapeForParser(moreMovies);
                                 lsParser.parseWithContext(lsInput, doc.getElementById('ratings'), 3);
                             }
                         });
@@ -662,7 +669,7 @@ var KP = (function() {
                     API.getComments(result.item.id, function(xhr) {
                         var commentResult = JSON.parse(xhr.responseText);
                         var bestComment = MovieTemplates.fragments.bestComment(commentResult);
-                        lsInput.stringData = bestComment.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+                        lsInput.stringData = Utils.escapeForParser(bestComment);
                         lsParser.parseWithContext(lsInput, doc.getElementById('ratingSection'), 1);
                     });
                 }
@@ -673,7 +680,7 @@ var KP = (function() {
                         if (xhr.status == 200) {
                             var traktResult = JSON.parse(xhr.responseText);
                             var traktRaiting = MovieTemplates.fragments.ratingCard('TraktTV', (Math.round(traktResult.rating * 100) / 100).toFixed(1), Math.round(traktResult.rating) / 10, traktResult.votes, imdb);
-                            lsInput.stringData = traktRaiting.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+                            lsInput.stringData = Utils.escapeForParser(traktRaiting);
                             var elements = doc.getElementsByTagName('ratingCard')
                             lsParser.parseWithContext(lsInput, elements.item(elements.length - 1), 4);
                         }
@@ -685,7 +692,7 @@ var KP = (function() {
                 Kinopoisk2.loadFromKinopoisk(kinopoisk2.methods.getStaffList, result.item.kinopoisk, kinopoiskResult => {
                     if (typeof kinopoiskResult !== 'undefined' && kinopoiskResult.length > 0) {
                         var template = Kinopoisk2.castTemplate(kinopoiskResult);
-                        lsInput.stringData = template.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+                        lsInput.stringData = Utils.escapeForParser(template);
                         lsParser.parseWithContext(lsInput, doc.getElementById('actors'), 5);
                     }
                 });
@@ -693,7 +700,7 @@ var KP = (function() {
                 Kinopoisk2.loadFromKinopoisk(kinopoisk2.methods.getFacts, result.item.kinopoisk, kinopoiskResult => {
                     if (typeof kinopoiskResult.items !== 'undefined' && kinopoiskResult.items.length > 0) {
                         var template = Kinopoisk2.triviaTemplate(kinopoiskResult);
-                        lsInput.stringData = template.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+                        lsInput.stringData = Utils.escapeForParser(template);
                         lsParser.parseWithContext(lsInput, doc.getElementById('ratings'), 4);
                     }
                 });
@@ -703,7 +710,7 @@ var KP = (function() {
                 //     KP.showScreenshots(result.item.kinopoisk, null, true);
                 // } else {
                 //     var screenshotButton = MovieTemplates.fragments.screenshotButton(result, false);
-                //     lsInput.stringData = screenshotButton.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+                //     lsInput.stringData = Utils.escapeForParser(screenshotButton);
                 //     //doc.getElementById('shufflePlayButton')
                 //     lsParser.parseWithContext(lsInput, doc.getElementsByTagName('buttonLockup').item(0), 4);
                 // }
@@ -717,14 +724,14 @@ var KP = (function() {
             //                 KP.showScreenshots(result.item.kinopoisk, null, true);
             //             } else {
             //                 var screenshotButton = MovieTemplates.fragments.screenshotButton(result, false);
-            //                 lsInput.stringData = screenshotButton.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+            //                 lsInput.stringData = Utils.escapeForParser(screenshotButton);
             //                 //doc.getElementById('shufflePlayButton')
             //                 lsParser.parseWithContext(lsInput, doc.getElementsByTagName('buttonLockup').item(0), 4);
             //             }
             //         }
             //         if (kinopoiskResult.data.triviaData) {
             //             var template = Kinopoisk.triviaTemplate(kinopoiskResult);
-            //             lsInput.stringData = template.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+            //             lsInput.stringData = Utils.escapeForParser(template);
             //             lsParser.parseWithContext(lsInput, doc.getElementById('ratings'), 4);
             //         }
             //     });
@@ -739,11 +746,11 @@ var KP = (function() {
                             tmdbSeasons.forEach((season, index) => {
                                 if (result.item.seasons[index] && season.poster_path) {
                                     var string = '<img id="img' + result.item.seasons[index].number + '" src ="' + theMovieDB.imageUrl + season.poster_path + '" width="182" height="274" />';
-                                    lsInput.stringData = string.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+                                    lsInput.stringData = Utils.escapeForParser(string);
                                     lsParser.parseWithContext(lsInput, doc.getElementById('img' + result.item.seasons[index].number), 5);
                                 }
                                 if (!result.item.seasons[index] && index > result.item.seasons.length - 1) {
-                                    lsInput.stringData = MovieTemplates.fragments.tmdbSeason(season).replace(/&/g, "&amp;").replace(/'/g, "&apos;");
+                                    lsInput.stringData = Utils.escapeForParser(MovieTemplates.fragments.tmdbSeason(season));
                                     lsParser.parseWithContext(lsInput, doc.getElementsByTagName('section').item(0), 1);
                                 }
                             });
@@ -763,7 +770,7 @@ var KP = (function() {
             var doc = Presenter.makeDocument(template, true);
             Presenter.pushDocument(doc);
 
-            update = function() {
+            var update = function() {
                 var activeParser = Presenter.activeParser(doc);
                 Network.loadItemsFrom(itemToLoad, function(result2, options) {
                     cachedResult = result2;
@@ -832,13 +839,13 @@ var KP = (function() {
             var template = Templates.actorPage(options, sort);
             var doc1 = Presenter.makeDocument(template, true);
             Presenter.pushDocument(doc1);
-            showActorBanner = function(options) {
+            var showActorBanner = function(options) {
                 let actorBanner = Templates.fragments.actorBanner(options)
                 replaceElement(actorBanner, null, "biography", ParserActions.REPLACE);
             }
             
             //id = null
-            if (id != undefined, id != null) {
+            if (id != undefined && id != null) {
                 Kinopoisk2.loadFromKinopoisk(kinopoisk2.methods.getStaffInfo, id, kinopoiskResult => {
                     if (typeof kinopoiskResult !== 'undefined' && kinopoiskResult.personId) {
                         options['profile_path'] = kinopoisk2.actorImageUrl + kinopoiskResult.personId + '.jpg'
@@ -973,7 +980,7 @@ var KP = (function() {
                         var checked = result.folders.find(folder => folder.id === item.id)
                         return Templates.fragments.bookmarksButton(itemID, item, checked)
                     })
-                    var desc = !buttons ? "Закладки отсутствуют" : " "
+                    var desc = buttons.length == 0 ? "Закладки отсутствуют" : " "
                     buttons.push('<button onselect="KP.createBookmarkFolder()"><text>+ Создать закладку</text></button>');
                     var template = Templates.alert(options.title, desc, buttons.join(""));
                     var doc = Presenter.makeDocument(template, true);
@@ -1128,7 +1135,7 @@ var KP = (function() {
         },
 
         showHistory() {
-            var template = Templates.descriptiveAlert(changelog, 'История изменений');
+            var template = Templates.descriptiveAlert(changelog || 'Список изменений загружается…', 'История изменений');
             var doc = Presenter.makeDocument(template, true);
             Presenter.modalDocument(doc);
         },
@@ -1205,47 +1212,66 @@ var KP = (function() {
                 replaceElement(template, "document", null, 5);
                 var searchField = doc.getElementsByTagName("searchField").item(0);
                 var keyboard = searchField.getFeature("Keyboard");
-                keyboard.onTextChange = function() {
-                    spinnerIn(searchField);
-                    var searchText = keyboard.text;
-                    if (searchText.length > 0) {
-                        API.getSearchItems(searchText, function(xhr) {
-                            if (xhr.status == 200) {
-                                var searchResult = JSON.parse(xhr.responseText);
-                                var searchResultMovies = '';
-                                var searchResultSerials = '';
-                                if (searchResult.items.length > 0) {
-                                    // if (settings.cartoonMode.id) {
-                                    //     Utils.onlyCartoon(searchResult);
-                                    // }
-                                    searchResult.items.forEach(item => {
-                                        var itemPoster = Templates.fragments.itemPoster(item, '182', '274', 'true');
-                                        if (item.type == 'serial' || item.type == 'docuserial' || item.type == 'tvshow') {
-                                            searchResultSerials += itemPoster;
-                                        } else {
-                                            searchResultMovies += itemPoster;
-                                        }
-                                    });
-                                    var shelf = '';
-                                    var options = [{ movies: searchResultMovies, item: { id: 'Results', title: 'Фильмы' } },
-                                        { movies: searchResultSerials, item: { id: 'Results', title: 'Сериалы' } }
-                                    ];
-                                    for (var index in options) {
-                                        shelf += Templates.fragments.itemsShelf(options[index]);
-                                    }
-                                    activeParser.lsInput.stringData = shelf.replace(/&/g, "&amp;").replace(/'/g, "&apos;");
-                                    spinnerIn(searchField, false);
-                                } else {
-                                    activeParser.lsInput.stringData = Templates.fragments.list('Результаты отсутствуют');
-                                    spinnerIn(searchField, false);
-                                }
+                var searchTimer;
+                var searchRequest;
+                var searchSeq = 0;
+
+                function renderSearch(markup) {
+                    activeParser.lsInput.stringData = Utils.escapeForParser(markup);
+                    activeParser.lsParser.parseWithContext(activeParser.lsInput, doc.getElementsByTagName("collectionList").item(0), 2);
+                    spinnerIn(searchField, false);
+                }
+
+                function runSearch(searchText, seq) {
+                    searchRequest = API.getSearchItems(searchText, function(xhr) {
+                        // A slower earlier request must not overwrite newer results.
+                        if (seq != searchSeq) { return; }
+                        if (xhr.status != 200) {
+                            renderSearch(Templates.fragments.list('Не удалось выполнить поиск.'));
+                            return;
+                        }
+                        var searchResult = Utils.parseJSON(xhr, null);
+                        if (!searchResult || !searchResult.items || searchResult.items.length == 0) {
+                            renderSearch(Templates.fragments.list('Результаты отсутствуют'));
+                            return;
+                        }
+                        var searchResultMovies = '';
+                        var searchResultSerials = '';
+                        searchResult.items.forEach(item => {
+                            var itemPoster = Templates.fragments.itemPoster(item, '182', '274', 'true');
+                            if (Utils.isSerial(item)) {
+                                searchResultSerials += itemPoster;
+                            } else {
+                                searchResultMovies += itemPoster;
                             }
                         });
-                    } else {
-                        activeParser.lsInput.stringData = Templates.fragments.list('Поиск происходит по мере ввода текста от 1 символа.');
-                        spinnerIn(searchField, false);
+                        var options = [{ movies: searchResultMovies, item: { id: 'Results', title: 'Фильмы' } },
+                            { movies: searchResultSerials, item: { id: 'Results', title: 'Сериалы' } }
+                        ];
+                        var shelf = '';
+                        for (var index in options) {
+                            if (options[index].movies) { shelf += Templates.fragments.itemsShelf(options[index]); }
+                        }
+                        renderSearch(shelf);
+                    });
+                }
+
+                keyboard.onTextChange = function() {
+                    var searchText = keyboard.text;
+                    searchSeq++;
+                    if (searchTimer) { clearTimeout(searchTimer); }
+                    if (searchRequest) {
+                        try { searchRequest.abort() } catch (e) { console.log('abort failed', e) }
+                        searchRequest = undefined;
                     }
-                    activeParser.lsParser.parseWithContext(activeParser.lsInput, doc.getElementsByTagName("collectionList").item(0), 2);
+                    if (searchText.length == 0) {
+                        renderSearch(Templates.fragments.list('Поиск происходит по мере ввода текста от 1 символа.'));
+                        return;
+                    }
+                    spinnerIn(searchField);
+                    // Debounced so typing does not fire one request per keystroke.
+                    var seq = searchSeq;
+                    searchTimer = setTimeout(function() { runSearch(searchText, seq); }, 300);
                 }
             });
         },
@@ -1287,11 +1313,11 @@ var KP = (function() {
 
         //
         changeButton(id, buttonStyle, oldButtonStyle, buttonPlaceholder, oldButtonPlaceholder) {
-            var string = '<buttonLockup  class="smallButton" id ="changeButton" onselect="KP.addToWatchList(' + id + '); changeButton(\'' + id + '\',\'' + oldButtonStyle + '\',\'' + buttonStyle + '\',\'' + oldButtonPlaceholder + '\',\'' + buttonPlaceholder + '\');"><badge src="resource://' + buttonStyle + '" /><title>' + buttonPlaceholder + '</title></buttonLockup>';
+            var string = '<buttonLockup  class="smallButton" id ="changeButton" onselect="KP.addToWatchList(' + id + '); KP.changeButton(\'' + id + '\',\'' + oldButtonStyle + '\',\'' + buttonStyle + '\',\'' + oldButtonPlaceholder + '\',\'' + buttonPlaceholder + '\');"><badge src="resource://' + buttonStyle + '" /><title>' + buttonPlaceholder + '</title></buttonLockup>';
             replaceElement(string, null, "changeButton", 5);
         },
         changeButtonUber(id, buttonStyle, oldButtonStyle) {
-            var string = '<button style="padding: 0; width: 80; margin-top: 10" class="button playbutton banner-left" id ="changeButtonUber" onselect="KP.addToWatchList(' + id + '); changeButtonUber(\'' + id + '\',\'' + oldButtonStyle + '\',\'' + buttonStyle + '\');"><badge src="resource://' + buttonStyle + '" /></button>';
+            var string = '<button style="padding: 0; width: 80; margin-top: 10" class="button playbutton banner-left" id ="changeButtonUber" onselect="KP.addToWatchList(' + id + '); KP.changeButtonUber(\'' + id + '\',\'' + oldButtonStyle + '\',\'' + buttonStyle + '\');"><badge src="resource://' + buttonStyle + '" /></button>';
             replaceElement(string, null, "changeButtonUber", 5);
         },
         changeWatchingButton() {

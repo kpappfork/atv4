@@ -1,0 +1,101 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Check sources and verify the committed bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      # Parse check, markup-handler resolution, and ESLint.
+      - name: Check
+        run: npm run check
+
+      # bundle.js is committed, so it can drift from js/. Rebuild and compare.
+      # Line 1 is a random cache-busting header, so it is excluded; the rest of
+      # the output is deterministic for a given esbuild version and input.
+      - name: Verify the committed bundle is up to date
+        run: |
+          cp bundle.js /tmp/committed-bundle.js
+          npm run build
+          if ! diff -q <(tail -n +2 /tmp/committed-bundle.js) <(tail -n +2 bundle.js) >/dev/null; then
+            echo "::error::bundle.js is stale — run 'npm run build' and commit the result."
+            exit 1
+          fi
+          echo "bundle.js matches a fresh build of the sources."
+
+  deploy:
+    name: Publish artifacts to the render branch
+    # Manual only: `render` is served live at appkp.cc, so a deploy is never a
+    # side effect of a push. Run it from the Actions tab once main looks good.
+    if: github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        env:
+          API_ENCODED: ${{ secrets.API_ENCODED }}
+          API_LEGACY_ENCODED: ${{ secrets.API_LEGACY_ENCODED }}
+          API_EXT2_LEGACY: ${{ secrets.API_EXT2_LEGACY }}
+        run: npm run build
+
+      - name: Assemble the render tree
+        env:
+          PAGES_CNAME: ${{ vars.PAGES_CNAME }}
+        run: |
+          mkdir -p /tmp/render
+          cp -r img /tmp/render/
+          cp CHANGELOG VERSION README.md /tmp/render/
+          cp bundle.js bundle.min.js /tmp/render/
+          # render carries no js/ directory, so application.js must be the bundle
+          # too — the host may use either name as the entry point.
+          cp bundle.js /tmp/render/application.js
+          # A custom domain can only be claimed by one repository, so this fork
+          # must not reuse the upstream's. Set the PAGES_CNAME repository
+          # variable to publish one; left unset, the site is served from
+          # https://<owner>.github.io/<repo>/.
+          if [ -n "$PAGES_CNAME" ]; then
+            echo "$PAGES_CNAME" > /tmp/render/CNAME
+          fi
+
+      - name: Publish
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan render-tmp
+          git rm -rf --cached . >/dev/null
+          rm -rf img js build .github node_modules
+          cp -r /tmp/render/. .
+          git add -A
+          git commit -m "Deploy $(cat VERSION) from ${GITHUB_SHA::7}"
+          git push --force origin render-tmp:render

@@ -1,5 +1,5 @@
 var baseURL;
-var APP_VERSION = "1.59.1";
+var APP_VERSION = "1.60.0";
 var MenuItemDoc;
 var cachedResult;
 var globalCheckAuthInterval;
@@ -12,6 +12,11 @@ var skipCache = false;
 var DEV = false;
 var menuDoc;
 var hashConfig = {};
+var bootOptions = {};
+
+// Replaced with `true` by the bundler (see build/build.mjs). In the bundled build
+// every module is already inlined, so there is nothing to evaluateScripts().
+var IS_BUNDLED = (typeof __BUNDLED__ !== 'undefined') && __BUNDLED__;
 
 // Boot Helpers
 function getLoadingString(title) {
@@ -80,8 +85,9 @@ function checkDEV() {
 // MARK: - APP
 App.onLaunch = function(options) {
     console.log(options);
+    bootOptions = options || {};
     baseURL = options.BASEURL;
-    if (baseURL && !baseURL[baseURL.length - 1] !== "/") {
+    if (baseURL && baseURL[baseURL.length - 1] !== "/") {
       baseURL += '/';
     }
 
@@ -126,18 +132,19 @@ App.onLaunch = function(options) {
 
     let loadingString = getLoadingString();
     let loadingDocument = new DOMParser().parseFromString(loadingString, "application/xml");
-    if (typeof navigationDocument !== undefined) {
+    if (typeof navigationDocument !== "undefined") {
         navigationDocument.pushDocument(loadingDocument);
+    }
+
+    if (IS_BUNDLED) {
+        checkDEV();
+        setTimeout(bootstrap, 1000);
+        return;
     }
 
     evaluateScripts(javascriptFiles, function(success) {
         if (success) {
-            AppSettings.populate(hashConfig);
-            API.update();
-            if (Auth.check()) { initApp(); } else { showActivationPage(); }
-            if (options.AS_PLAYLIST && options.AS_PLAYLIST == "true") {
-                showSetDefaultUrlAlert();
-            }
+            bootstrap();
         } else {
             showAlert("Произошла ошибка при загрузке внешних модулей. Проверьте ваше подключение к интернету и повторите попытку позже, перезагрузив приложение. На пульте Apple TV Remote дважды быстро нажмите кнопку «Домой». Смахните вверх по поверхности Touch на пульте Apple TV Remote.");
             throw new EvalError("TVMLCatalog application.js: unable to evaluate scripts.");
@@ -145,6 +152,16 @@ App.onLaunch = function(options) {
     });
 
     checkDEV();
+}
+
+// Shared boot sequence for both the evaluateScripts path and the bundled path.
+function bootstrap() {
+    AppSettings.populate(hashConfig);
+    API.update();
+    if (Auth.check()) { initApp(); } else { showActivationPage(); }
+    if (bootOptions.AS_PLAYLIST && bootOptions.AS_PLAYLIST == "true") {
+        showSetDefaultUrlAlert();
+    }
 }
 
 App.onResume = function(options) {
@@ -204,7 +221,7 @@ function initApp() {
         console.log("GlobalCheckAuthInterval");
         //Auth.check();
         if (!Auth.check()) { showActivationPage(); }
-        if (Trakt.checkTrakToken()) { Trakt.traktGetTokenByRefreshToken() }
+        if (Trakt.needsRefresh()) { Trakt.traktGetTokenByRefreshToken() }
     }, 3600000);
 
     // Cache purger interval
@@ -348,7 +365,7 @@ function tinyPlayerTimeDidChange(id, time, video, season) {
 }
 
 function tinyPlayerStateDidChange(state, item, time, duration, season, trakt) {
-    KPlayer.playerStateDidChange(state, cachedResult.item, time, duration, season, trakt)
+    KPlayer.playerStateDidChange(state, item || (cachedResult && cachedResult.item), time, duration, season, trakt)
 }
 
 // Methods called from Swift, For MicroIPTV
@@ -357,7 +374,7 @@ function microPlayerTimeDidChange(id, time, video, season) {
 }
 
 function microPlayerStateDidChange(state, item, time, duration, season, trakt) {
-    KPlayer.playerStateDidChange(state, cachedResult.item, time, duration, season, trakt)
+    KPlayer.playerStateDidChange(state, item || (cachedResult && cachedResult.item), time, duration, season, trakt)
 }
 
 function run(id, type, action) {
@@ -406,7 +423,8 @@ function backgroundFetch() {
                 { items: 'watching', type: 'movie', from: 'movies', id: 'unwatched', title: 'Недосмотренные фильмы' }
             ];;
             break;
-        case topShelfOptions.premier, topShelfOptions.hotMovies:
+        case topShelfOptions.premier:
+        case topShelfOptions.hotMovies:
             var itemsToLoad = [{ items: 'items', type: 'movie', from: 'hot', id: 'hot', title: 'Горячие фильмы' }];
             break;
         case topShelfOptions.popularMovies:
@@ -425,6 +443,31 @@ function backgroundFetch() {
             }
         });
     }
+}
+
+// Referenced from markup (Network error screens) but previously only defined in bundle.js.
+function globalClearStorage() {
+    AppSettings.removeDefaultUrl();
+    [KEYS.accessToken, KEYS.refreshToken, KEYS.tokenExpires].forEach(function(key) {
+        try { AppStorage.removeItem(key) } catch (e) { console.log('clear failed for ' + key, e) }
+    });
+    [KEYS.accessToken, KEYS.refreshToken].forEach(function(key) {
+        try { AppStorage.removeData(key) } catch (e) { console.log('clear failed for ' + key, e) }
+    });
+    showAlert("Приложение сброшено. Перезапустите его.");
+}
+
+// Used by templates.js and kp.js. Some hosts inject it natively — only fill the gap.
+if (typeof formatDuration !== 'function') {
+    formatDuration = function(seconds) {
+        seconds = parseInt(seconds, 10);
+        if (!seconds || seconds < 0) { return '0:00'; }
+        var hours = Math.floor(seconds / 3600);
+        var minutes = Math.floor((seconds % 3600) / 60);
+        var secs = Math.floor(seconds % 60);
+        var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+        return hours > 0 ? hours + ':' + pad(minutes) + ':' + pad(secs) : minutes + ':' + pad(secs);
+    };
 }
 
 // Transitional code for older versions

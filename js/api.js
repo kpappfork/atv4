@@ -1,4 +1,5 @@
 var API = (function () {
+    let _token = null
     let _url = KINOPUB.apiBase
     let _authUrl = KINOPUB.apiAuth
     let _extUrl = KINOPUB.apiBaseExt2
@@ -83,17 +84,17 @@ var API = (function () {
         },
 
         getUserInfo(callback) {
-            _callback = function(xhr) {
-                var result = JSON.parse(xhr.responseText);
-                callback(result)
+            var _callback = function(xhr) {
+                var result = Utils.parseJSON(xhr, null);
+                if (result && result.user) { callback(result) }
             }
             Ajax.aget(_url + 'user', _headers, null, _callback, _token);
         },
 
         getDeviceInfo(callback) {
-            _callback = function(xhr) {
-                var result = JSON.parse(xhr.responseText);
-                callback(result)
+            var _callback = function(xhr) {
+                var result = Utils.parseJSON(xhr, null);
+                if (result) { callback(result) }
             }
             Ajax.aget(_url + 'device/info', _headers, null, _callback, _token);
         },
@@ -116,7 +117,7 @@ var API = (function () {
             var url = _url + options.items
             var postInUrl = ""
             if (options.from) { url += '/' + options.from;  postInUrl += options.from; }
-            async = options.async
+            var async = options.async
             if (postInUrl.includes("clear-for-")) {
                 Ajax.apostInUrl(url, _headers, params, callback, _token, async);
             } else if (options.method == "POST") {
@@ -173,13 +174,13 @@ var API = (function () {
         },
         getSearchItems(text, callback) {
             var params = {'q': text }
-            Ajax.get(_extUrl + 'items/search', _headers, params, callback, false);
+            return Ajax.get(_extUrl + 'items/search', _headers, params, callback, true);
         },
         getCollectionForItem(id, callback) {
             Ajax.get(_extUrl + 'items/collections/' + id, _headers, null, callback);
         },
         sendLogs(params) {
-            var xhr = Ajax.get("https://api.support-kp.com/" + "debug/log", _headers, params, null, true);
+            Ajax.post("https://api.support-kp.com/" + "debug/log", _headers, params, null, true);
         },
 
         // MARK: - TV API
@@ -191,20 +192,29 @@ var API = (function () {
                 if (callback) { callback(result) };
                 return;
             }
-            _callback = function(xhr) {
-                var result = JSON.parse(xhr.responseText);
-                Cache.set(key, result, 60);
+            var _callback = function(xhr) {
+                var result = Utils.parseJSON(xhr, null);
+                if (result) { Cache.set(key, result, 60); }
                 if (callback) { callback(result) }
             }
-            Ajax.get('http://spacetv.in/api/channel/' + id, _headers, null, _callback, false);
+            Ajax.get('http://spacetv.in/api/channel/' + id, _headers, null, _callback, true);
         },
 
         getProgramNow(callback) {
-            _callback = function(xhr) {
-                var result = JSON.parse(xhr.responseText);
+            var key = 'programChannelNow';
+            var cached = Cache.get(key);
+            if (cached != undefined) {
+                if (callback) { callback(cached) };
+                return;
+            }
+            var _callback = function(xhr) {
+                // Must always call back: the playlist page renders from here, and a
+                // dropped callback used to leave it stuck on the loading screen.
+                var result = Utils.parseJSON(xhr, null);
+                if (result) { Cache.set(key, result, 60); }
                 if (callback) { callback(result) }
             }
-            Ajax.get('http://spacetv.in/api/channel_now', _headers, null, _callback, false);
+            Ajax.get('http://spacetv.in/api/channel_now', _headers, null, _callback, true);
         },
 
         getPlaylist(url, callback) {
@@ -215,12 +225,12 @@ var API = (function () {
                 if (callback) { callback(result) };
                 return;
             }
-            _callback = function(xhr) {
-                var result = xhr.responseText;
-                Cache.set(key, result, 60);
+            var _callback = function(xhr) {
+                var result = (xhr.status == 200) ? xhr.responseText : null;
+                if (result) { Cache.set(key, result, 60); }
                 if (callback) { callback(result) }
             }
-            Ajax.get(url, _headers, null, _callback, false);
+            Ajax.get(url, _headers, null, _callback, true);
         },
 
         // MARK: - TRAKT API

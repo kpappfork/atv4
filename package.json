@@ -1,0 +1,23 @@
+{
+  "name": "atv4",
+  "version": "1.60.0",
+  "private": true,
+  "description": "TVML/TVJS client — build suite for bundle.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kpappfork/atv4.git"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "npm run check && node build/build.mjs && node build/smoke-test.mjs",
+    "build:dev": "node build/build.mjs --dev",
+    "check": "node build/build.mjs --check && node build/check-handlers.mjs && npm run lint",
+    "check:handlers": "node build/check-handlers.mjs",
+    "smoke": "node build/smoke-test.mjs",
+    "lint": "eslint application.js js/ build/"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "eslint": "^9.17.0"
+  }
+}
