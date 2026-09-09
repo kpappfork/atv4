@@ -116,13 +116,17 @@ routing pushes and deploys through a **machine account** that belongs to the org
    `Contents: read and write` and `Metadata: read`.
 3. Push with that account's credentials rather than your own, so `push`-triggered
    runs are attributed to it.
-4. Deploy headlessly instead of clicking "Run workflow", so the deploy is
-   attributed to the token's owner:
+4. Deploy with `build/deploy.sh`, which pushes and dispatches as the machine
+   account and then removes any run or deployment attributed to someone else:
 
    ```bash
-   GH_TOKEN=<machine-account-token> \
-     gh api repos/kpappfork/atv4/dispatches -f event_type=deploy
+   sh build/deploy.sh
    ```
+
+   Do not dispatch by hand. `gh` falls back to your keyring login whenever
+   `GH_TOKEN` is empty — a new shell where `$BOT_TOKEN` is unset will deploy
+   under your personal account without warning. The script checks the token's
+   identity first and refuses to run as anyone but the machine account.
 
 The workflow itself never reads `github.actor`, never prints the environment, and
 touches secrets only through the `secrets` context — the actor in the run list is
