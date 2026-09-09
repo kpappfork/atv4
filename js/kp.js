@@ -279,14 +279,14 @@ var KP = (function() {
             options['title2'] = result.folder.title
             options['id'] = result.folder.id
             var newItem = Templates.fragments.itemsLookup(null, options, 0);
-            replaceElement(newItem, null, "create", 3);
+            replaceElement(newItem, null, "create", 3, docs['subscribes']);
         }
     }
 
     function deleteBookmark(result, options) {
         Presenter.dismissModal();
         if (result.status == 200) {
-            replaceElement(' ', null, 'bookmark' + options.filters.folder, 5);
+            replaceElement(' ', null, 'bookmark' + options.filters.folder, 5, docs['subscribes']);
         }
     }
 
@@ -298,12 +298,15 @@ var KP = (function() {
             var itemToLoad = { items: 'history', type: null, from: null, id: 'history', title: 'История' }
             Network.loadItemsFrom(itemToLoad, function(result, options) {
                 var movies = getItemsTemplate(result, options);
-                replaceElement(`${movies.join('')}`, null, "history", 2);
+                replaceElement(`${movies.join('')}`, null, "history", 2, docs['subscribes']);
             }, true);
         }
     }
 
-    function loadFiltered(itemToLoad, options, options2, callback) {
+    // `doc` matters: these writes land long after the request was issued, and
+    // without it they target getActiveDocument() — whichever tab the user has
+    // moved to by then, leaving the intended one on its loading screen.
+    function loadFiltered(itemToLoad, options, options2, callback, doc) {
         var settings = AppSettings.getAll();
         for (var index in options) {
             var key = Object.keys(options[index].filters)[0]
@@ -322,7 +325,7 @@ var KP = (function() {
             var movies = getItemsTemplate(result, options, true);
             console.log(result);
             if (callback) { callback(movies) } else {
-                replaceElement(`${movies.join('')}`, null, "items", 2);
+                replaceElement(`${movies.join('')}`, null, "items", 2, doc);
             }
         }, true);
     }
@@ -345,7 +348,7 @@ var KP = (function() {
                         activeParser.lsInput.stringData = '<description class ="text">' + title + ' <badge class="label" height="23" width="40" src="resource://button-dropdown" /></description>';
                         activeParser.lsParser.parseWithContext(activeParser.lsInput, activeParser.doc.getElementsByTagName("description").item(index), 5);
                         Presenter.dismissModal();
-                        loadFiltered(itemForLibrary, optionsLibrary, optionsLibrary2);
+                        loadFiltered(itemForLibrary, optionsLibrary, optionsLibrary2, null, docs['library']);
                     }
                 }
             }
@@ -842,7 +845,7 @@ var KP = (function() {
             Presenter.pushDocument(doc1);
             var showActorBanner = function(options) {
                 let actorBanner = Templates.fragments.actorBanner(options)
-                replaceElement(actorBanner, null, "biography", ParserActions.REPLACE);
+                replaceElement(actorBanner, null, "biography", ParserActions.REPLACE, doc1);
             }
             
             //id = null
@@ -870,8 +873,8 @@ var KP = (function() {
                 }, false);
             }
             loadFiltered(itemForActors, null, optionsLibrary2, function(movies) {
-                replaceElement(movies.join(''), null, "items", 2);
-            })
+                replaceElement(movies.join(''), null, "items", 2, doc1);
+            }, doc1)
         },
 
         // MYSUBSCRIBES
@@ -1011,8 +1014,8 @@ var KP = (function() {
                 var filters = optionsLibrary.map((option, index) => Templates.fragments.lockup(option, index));
                 var sort = optionsLibrary2[itemForLibrary.options2]
                 var template = Templates.libraryPage(filters, sort);
-                replaceElement(template, "document", null, 5);
-                loadFiltered(itemForLibrary, optionsLibrary, optionsLibrary2)
+                replaceElement(template, "document", null, 5, doc);
+                loadFiltered(itemForLibrary, optionsLibrary, optionsLibrary2, null, doc)
             });
         },
 
@@ -1063,7 +1066,7 @@ var KP = (function() {
                     if (type == 'actor') {
                         loadFiltered(itemForActors, null, optionsLibrary2);
                     } else {
-                        loadFiltered(itemForLibrary, optionsLibrary, optionsLibrary2);
+                        loadFiltered(itemForLibrary, optionsLibrary, optionsLibrary2, null, docs['library']);
                     }
                 }
             });
@@ -1082,13 +1085,13 @@ var KP = (function() {
                 var template = Templates.settingsPage(deviceName);
                 replaceElement(template, "document", null, 5, doc);
                 loadChangelog(function() {
-                    replaceElement(Utils.escapeText(changelog), null, "changelog", 2);
+                    replaceElement(Utils.escapeText(changelog), null, "changelog", 2, doc);
                 });
                 API.getUserInfo(function(result) {
                     var regRusDate = Utils.rusDate(result.user.reg_date * 1000);
                     var endRusDate = Utils.rusDate(result.user.subscription.end_time * 1000);
                     var userInfo = '\nПользователь: ' + result.user.username + '\nДата регистрации: ' + regRusDate + '\n\n\nПодписка закончится: ' + endRusDate + '\nОсталось: ' + Math.round(result.user.subscription.days) + ' ' + Utils.declOfNum(Math.round(result.user.subscription.days), ['день', 'дня', 'дней']) + '\n\nDevice ID: ' + Device.vendorIdentifier;
-                    replaceElement(userInfo, null, "userInfo", 2);
+                    replaceElement(userInfo, null, "userInfo", 2, doc);
                 });
                 API.getDeviceInfo(saveDeviceSettings);
             });
@@ -1210,7 +1213,7 @@ var KP = (function() {
             var activeParser = Presenter.activeParser(doc);
             doc.addEventListener("load", function() {
                 var template = Templates.searchPage();
-                replaceElement(template, "document", null, 5);
+                replaceElement(template, "document", null, 5, doc);
                 var searchField = doc.getElementsByTagName("searchField").item(0);
                 var keyboard = searchField.getFeature("Keyboard");
                 var searchTimer;

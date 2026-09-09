@@ -67,6 +67,11 @@ var Ajax = (function() {
                 // ignore
             }
         };
+        xhr.onabort = function() {
+            // A deliberate abort needs no callback and no error UI — the page it
+            // belonged to is being torn down — but it must still leave the queue.
+            Utils.remove(requests, xhr);
+        };
         xhr.ontimeout = function() {
             console.log('timeout after ' + xhr.timeout + 'ms: ' + url);
             if (callback) {
