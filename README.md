@@ -132,6 +132,33 @@ The workflow itself never reads `github.actor`, never prints the environment, an
 touches secrets only through the `secrets` context — the actor in the run list is
 GitHub's own metadata, not something the job discloses.
 
+## QR codes
+
+`img/qr-*.png` are pre-generated for the fixed URLs the app asks people to open
+(the Kinopoisk API-key page and Trakt's activation page). They are static
+assets, not generated at runtime — a QR that renders but does not scan is worse
+than none, and the URLs never change.
+
+If one ever does change, regenerate it with any QR tool at error-correction
+level Q and verify it decodes before committing, for example:
+
+```sh
+python3 -m venv /tmp/qr && /tmp/qr/bin/pip install "qrcode[pil]" opencv-python-headless
+/tmp/qr/bin/python -c "
+import qrcode, cv2
+from qrcode.constants import ERROR_CORRECT_Q
+url = 'https://trakt.tv/activate'
+q = qrcode.QRCode(error_correction=ERROR_CORRECT_Q, box_size=8, border=3)
+q.add_data(url); q.make(fit=True)
+q.make_image(fill_color='black', back_color='white').save('img/qr-trakt.png')
+print(cv2.QRCodeDetector().detectAndDecode(cv2.imread('img/qr-trakt.png'))[0] == url)
+"
+```
+
+`Trakt.traktOauth` only shows its QR when the `verification_url` the API returns
+still matches `TRAKT_ACTIVATE_URL`, so a changed URL shows no QR rather than a
+wrong one.
+
 ## Checks
 
 Three checks run before every build, each aimed at a failure mode this codebase

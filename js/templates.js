@@ -44,9 +44,12 @@ var Templates = {
         `;
     },
 
-    showCode(code, title, errors) {
+    // `qr` is a filename under img/, shown when the caller knows which page the
+    // user has to open. Left out, the screen is exactly as before.
+    showCode(code, title, errors, qr) {
         title = title || "Введите отображаемый ниже код для регистрации устройства."
         errors = (errors) ? '<text style="color: red; margin-top: 100px;">' + errors + '</text>' : '';
+        var qrImage = qr ? `<img style="tv-align: center; margin: 20 0 0 0;" src="${baseURL}img/${qr}" width="240" height="240" />` : '';
         return `
             <document>
                 <head>
@@ -58,6 +61,7 @@ var Templates = {
                 <alertTemplate>
                     <title class="bigtitle">${title}</title>
                     <description class="bigdesc">${code}</description>
+                    ${qrImage}
                     ${errors}
                 </alertTemplate>
             </document>
@@ -376,7 +380,8 @@ var Templates = {
                                     <relatedContent>
                                         <lockup>
                                             <title class="title">Ключ кинопоиска</title>
-                                            <description style="tv-text-max-lines: 15;">\nДля получения ключа зарегистрируйтесь на https://kinopoiskapiunofficial.tech/ \nПосле регистрации на данном сайте в профиле этого сайта вы получите API-KEY, его необходимо ввести здесь.\n\n Данный ключ даст вам возможность видеть фото актеров, кадры из фильмов и интересные факты.</description>
+                                            <img style="tv-align: right; tv-position: top-right; margin: 0 0 20 20;" src="${baseURL}img/qr-kinopoisk.png" width="220" height="220" />
+                                            <description style="tv-text-max-lines: 15;">\nДля получения ключа зарегистрируйтесь на https://kinopoiskapiunofficial.tech/ (наведите камеру на QR-код) \nПосле регистрации на данном сайте в профиле этого сайта вы получите API-KEY, его необходимо ввести здесь.\n\n Данный ключ даст вам возможность видеть фото актеров, кадры из фильмов и интересные факты.</description>
                                         </lockup>
                                     </relatedContent>
                                 </listItemLockup>

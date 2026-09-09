@@ -1,5 +1,7 @@
 var Trakt = (function() {
   var refreshTimer;
+  // Must match the URL encoded in img/qr-trakt.png.
+  const TRAKT_ACTIVATE_URL = 'https://trakt.tv/activate';
   const traktType = {
     movie: "movies",
     tv: "shows"
@@ -110,7 +112,11 @@ var Trakt = (function() {
             if (xhr.status == 200) {
               var result = Utils.parseJSON(xhr, null);
               if (!result || !result.user_code) { return; }
-              var template = Templates.showCode(result.user_code, 'Откройте ' + result.verification_url + ' и введите отображаемый ниже код для регистрации устройства.');
+              // The QR is pre-generated for a fixed URL; only show it when that is
+              // still the page Trakt asks for, so a changed verification_url shows
+              // no QR rather than a wrong one.
+              var qr = (result.verification_url === TRAKT_ACTIVATE_URL) ? 'qr-trakt.png' : null;
+              var template = Templates.showCode(result.user_code, 'Откройте ' + result.verification_url + ' и введите отображаемый ниже код для регистрации устройства.', null, qr);
               var doc = Presenter.makeDocument(template);
               Presenter.modalDocument(doc);
               refreshTimer = setInterval(function () { Trakt.traktGetToken(result.device_code)}, result.interval*1000)       
