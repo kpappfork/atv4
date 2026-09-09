@@ -1,6 +1,6 @@
 {
   "name": "atv4",
-  "version": "1.61.3",
+  "version": "1.61.4",
   "private": true,
   "description": "TVML/TVJS client — build suite for bundle.js",
   "repository": {

@@ -115,32 +115,32 @@ var KP = (function() {
         if (settings.userTopShelfOption.id == options.id) {
             var name = title || options.name;
             var topshelfArrayCount = 0;
-            var topshelfArray = items.map(item => {
+            var topshelfArray = (items || []).map(item => {
                 if (topshelfArrayCount < 10) {
+                    if (!item || !item.posters || !item.posters.big) { return }
                     if (options == topShelfOptions.premier && item.kinopoisk_rating < 4) { return }
                     topshelfArrayCount++;
                     var topshelfMovie = {};
                     topshelfMovie["slug"] = item.type + ";items/" + item.id.toString();
                     topshelfMovie["image"] = Utils.replaceCdn(item.posters.big);
-                    topshelfMovie["title"] = item.title.split(' / ')[0];
+                    topshelfMovie["title"] = String(item.title || '').split(' / ')[0];
                     return topshelfMovie;
                 }
             }).filter(item => item != undefined);
             var finalTopshelfArray = {}
             var dict = { "title": name, "contentIdentifier": "movies", "items": topshelfArray };
 
-            var savedTopShelf = AppStorage.getData(KEYS.topshelf);
-            if (savedTopShelf) {
-                var parsed = JSON.parse(savedTopShelf)
-                if (parsed) {
-                    if (options == topShelfOptions.unwatched && parsed.sections[0].title.includes("Недосмотренные")) {
-                        var index = parsed.sections.findIndex(section => section.title == dict.title);
-                        if (index != -1) { parsed.sections[index] = dict } else { parsed.sections.push(dict) }
-                        finalTopshelfArray = parsed
-                        writeTopShelf(finalTopshelfArray)
-                        return
-                    }
-                }
+            // Anything unexpected in storage must not throw: this runs before the
+            // page renders, and a throw here both blanked the page and left the
+            // TopShelf permanently stuck, since every later write failed the same way.
+            var parsed = Utils.parseJSON(AppStorage.getData(KEYS.topshelf), null);
+            var sections = (parsed && Array.isArray(parsed.sections)) ? parsed.sections : null;
+            if (options == topShelfOptions.unwatched && sections && sections.length > 0 &&
+                String(sections[0].title || '').indexOf("Недосмотренные") > -1) {
+                var index = sections.findIndex(section => section && section.title == dict.title);
+                if (index != -1) { sections[index] = dict } else { sections.push(dict) }
+                writeTopShelf({ sections: sections })
+                return
             }
             finalTopshelfArray["sections"] = [dict]
             writeTopShelf(finalTopshelfArray)

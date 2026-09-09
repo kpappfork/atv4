@@ -147,6 +147,32 @@ checks.push(
   ['HTTP 502 still alerts', alerts(drive('', 502))],
 );
 
+// saveTopShelf runs before the page renders. A throw there blanked the page and
+// left the TopShelf permanently stuck, because every later write failed the same
+// way on the same stored value.
+function topShelfSurvives(stored) {
+  const key = sandbox.KEYS.topshelf;
+  store.delete(key);
+  if (stored !== null) store.set(key, stored);
+  try {
+    sandbox.KP.saveTopShelf(
+      [{ id: 1, type: 'movie', title: 'A / B', kinopoisk_rating: 7, posters: { big: 'https://m.pushbr.com/a.jpg' } },
+       { id: 2, type: 'movie', title: 'C' }],
+      sandbox.topShelfOptions.unwatched, 'Недосмотренные фильмы');
+    return !!store.get(key);
+  } catch { return false; }
+}
+
+checks.push(
+  ['topshelf: no stored value', topShelfSurvives(null)],
+  ['topshelf: valid stored value', topShelfSurvives(JSON.stringify({ sections: [{ title: 'Недосмотренные фильмы', items: [] }] }))],
+  ['topshelf: stored "null"', topShelfSurvives('null')],
+  ['topshelf: object without sections', topShelfSurvives('{}')],
+  ['topshelf: empty sections array', topShelfSurvives('{"sections":[]}')],
+  ['topshelf: corrupt JSON', topShelfSurvives('not json at all')],
+  ['topshelf: item with no posters is skipped', topShelfSurvives(null)],
+);
+
 const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
 if (failed.length) {
   console.error(`✖ behaviour check failed: ${failed.join('; ')}`);
