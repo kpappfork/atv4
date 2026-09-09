@@ -63,17 +63,17 @@ var Network = (function() {
 
                     if (!unparseable && xhr.responseText && result && typeof result.error !== 'undefined') {
                         retryRequests.push({'options' : options, 'callback' : callback})
-                        Ajax.abortAll();
                         showErrorMessage(result.error)
                         if (callback) { callback(null, null, xhr) }
                     } else {
                         if (!isFallback) { Cache.set(key, result, 60); }
-                        if (callback) { callback(result, options) }
+                        if (callback) {
+                            try { callback(result, options) }
+                            catch (e) { console.log('Callback failed for "' + key + '": ' + e); }
+                        }
                     }
                 } else {
                     retryRequests.push({'options' : options, 'callback' : callback})
-                    Ajax.abortAll();
-                    //retryRequest = {'options' : options, 'callback' : callback}
                     showError(xhr)
                     if (callback) { callback(null, null, xhr) }
                 }

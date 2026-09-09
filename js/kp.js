@@ -911,15 +911,19 @@ var KP = (function() {
             doc.addEventListener("load", function() {
                 //doc.load = true;
                 Network.loadItemsFrom(itemsToLoad[0], function(result, options) {
-                    saveTopShelf(result.items, topShelfOptions.unwatched, options.title);
-                    if (result.items.length > 0) {
-                        var serials = getItemsTemplate(result, options);
-                        var showTemplate = Templates.fragments.itemsLookup(serials, options, serials.length);
+                    var showTemplate = '';
+                    if (result && Array.isArray(result.items) && options) {
+                        saveTopShelf(result.items, topShelfOptions.unwatched, options.title);
+                        if (result.items.length > 0) {
+                            var serials = getItemsTemplate(result, options);
+                            showTemplate = Templates.fragments.itemsLookup(serials, options, serials.length);
+                        }
                     }
-                    var template = Templates.mySubscribesPage(showTemplate || '');
-                    replaceElement(template, "document", null, 5, doc);
+                    // Render the page regardless: a failed shelf must not leave it blank.
+                    replaceElement(Templates.mySubscribesPage(showTemplate), "document", null, 5, doc);
                 }, true);
                 Network.loadItemsFrom(itemsToLoad[1], function(result, options) {
+                    if (!result || !Array.isArray(result.items) || !options) { return }
                     saveTopShelf(result.items, topShelfOptions.unwatched, options.title);
                     if (result.items.length > 0) {
                         var movies = getItemsTemplate(result, options);
@@ -930,6 +934,7 @@ var KP = (function() {
                     }
                 }, true);
                 Network.loadItemsFrom(itemsToLoad[2], function(result, options) {
+                    if (!result || !Array.isArray(result.items) || !options) { return }
                     var bookmarks = result.items.map(item => {
                         getBookmarks(doc, item.id);
                         options['title2'] = item.title
@@ -939,6 +944,7 @@ var KP = (function() {
                     replaceElement(`${bookmarks.join('')}`, null, "create", 3, doc);
                 }, true);
                 Network.loadItemsFrom(itemsToLoad[3], function(result, options) {
+                    if (!result || !options) { return }
                     var movies = getItemsTemplate(result, options);
                     replaceElement(`${movies.join('')}`, null, "history", 1, doc);
                 }, true);
@@ -947,6 +953,7 @@ var KP = (function() {
                 console.log("appear");
                 //if (doc.load) { console.log("appear"); doc.load = false; return; }
                 Network.loadItemsFrom(itemsToLoad[0], function(result, options) {
+                    if (!result || !Array.isArray(result.items) || !options) { return }
                     saveTopShelf(result.items, topShelfOptions.unwatched, options.title);
                     if (result.items.length > 0) {
                         var serials = getItemsTemplate(result, options);
@@ -955,6 +962,7 @@ var KP = (function() {
                     }
                 }, true);
                 Network.loadItemsFrom(itemsToLoad[1], function(result, options) {
+                    if (!result || !Array.isArray(result.items) || !options) { return }
                     saveTopShelf(result.items, topShelfOptions.unwatched, options.title);
                     if (result.items.length > 0) {
                         var movies = getItemsTemplate(result, options);
@@ -963,12 +971,14 @@ var KP = (function() {
                     }
                 }, true);
                 Network.loadItemsFrom(itemsToLoad[2], function(result, options) {
+                    if (!result || !Array.isArray(result.items)) { return }
                     result.items.forEach(item => {
                         getBookmarks(doc, item.id);
                         replaceElement(`${item.count}`, null, 'count' + item.id, 2, doc);
                     })
                 }, true);
                 Network.loadItemsFrom(itemsToLoad[3], function(result, options) {
+                    if (!result || !options) { return }
                     var movies = getItemsTemplate(result, options);
                     replaceElement(`${movies.join('')}`, null, "history", 2, doc);
                 }, true);
@@ -1297,11 +1307,13 @@ var KP = (function() {
             doc.addEventListener("load", function() {
                 Network.loadItemsFrom(itemsToLoad[1], function(result, options) {
                     console.log(result);
+                    if (!result || !Array.isArray(result.channels)) { return }
                     var channels = result.channels.map(channel => Templates.fragments.kpChannels(channel));
                     var template = Templates.TVPage(channels.join(""));
                     replaceElement(template, "document", null, 5, doc);
                 }, true);
                 Network.loadItemsFrom(itemsToLoad[0], function(result, options) {
+                    if (!result || !Array.isArray(result.items)) { return }
                     var playlists = result.items.map(item => Templates.fragments.playlists(item));
                     replaceElement(`${playlists.join('')}`, null, "playlists", 2, doc);
                 }, true);

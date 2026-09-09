@@ -23,7 +23,7 @@ const REQUIRED = [
 
 const store = new Map();
 // Drives the XHR stub so Network.loadItemsFrom's branches can be exercised.
-const net = { response: { status: 200, responseText: '{}' }, modals: 0, aborts: 0 };
+const net = { response: { status: 200, responseText: '{}' }, modals: 0, aborts: 0, queue: false, pending: [] };
 const sandbox = {
   console: { log() {}, error() {}, warn() {} },
   setTimeout() {}, clearTimeout() {}, setInterval() {}, clearInterval() {},
@@ -41,13 +41,21 @@ const sandbox = {
     removeItem: (k) => store.delete(k),
   },
   XMLHttpRequest: class {
-    constructor() { this.status = 0; this.responseText = ''; }
+    constructor() { this.status = 0; this.responseText = ''; this.aborted = false; }
     open() {} setRequestHeader() {}
-    abort() { net.aborts++; }
+    abort() { net.aborts++; this.aborted = true; if (this.onabort) this.onabort(); }
     send() {
+      if (net.queue) { net.pending.push(this); return; }
       this.status = net.response.status;
       this.responseText = net.response.responseText;
       if (this.onload) this.onload();
+    }
+    settle(status, body) {
+      if (this.aborted) return;   // an aborted xhr fires neither load nor error
+      this.status = status;
+      this.responseText = body;
+      if (status === 0) { if (this.onerror) this.onerror(); }
+      else if (this.onload) this.onload();
     }
   },
   DOMParser: class { parseFromString() { return {}; } },
@@ -136,7 +144,10 @@ function drive(responseText, status = 200) {
   return { modals: net.modals, aborts: net.aborts };
 }
 const quiet = (r) => r.modals === 0 && r.aborts === 0;
-const alerts = (r) => r.modals === 1 && r.aborts === 1;
+// An error must still surface, but it must NOT abort unrelated in-flight
+// requests: doing so stranded the page the user had just opened, leaving it
+// blank until the tab was reselected.
+const alerts = (r) => r.modals === 1 && r.aborts === 0;
 
 checks.push(
   ['unparseable 200 stays silent', quiet(drive('OK\n'))],
@@ -145,6 +156,7 @@ checks.push(
   ['valid JSON 200 stays silent', quiet(drive('{"items":[]}'))],
   ['200 carrying {"error"} still alerts', alerts(drive('{"error":"boom"}'))],
   ['HTTP 502 still alerts', alerts(drive('', 502))],
+  ['an error does not abort other in-flight requests', drive('', 502).aborts === 0],
 );
 
 // saveTopShelf runs before the page renders. A throw there blanked the page and
@@ -199,6 +211,26 @@ checks.push(
   ['cache: a fallback response is never cached', !cachesFallback()],
   ['cache: valid data is still cached', cachesValidData()],
 );
+
+// The reported failure: leaving a tab whose request then fails must not strand
+// the request belonging to the tab just opened. It used to abort it, and an
+// aborted xhr never calls back, so that page stayed blank until reselected.
+function otherTabSurvivesAFailure() {
+  net.queue = true;
+  net.pending = [];
+  let rendered = false;
+  sandbox.Network.loadItemsFrom({ items: 'items', type: 'serial', from: 'hot', id: 'tabA' }, () => {}, true);
+  sandbox.Network.loadItemsFrom({ items: 'watching', type: 'serial', from: 'serials', id: 'tabB' },
+    (r) => { if (r && Array.isArray(r.items)) rendered = true; }, true);
+  const [a, b] = net.pending;
+  net.queue = false;
+  if (!a || !b) { return false; }
+  a.settle(502, '');
+  b.settle(200, '{"items":[{"id":1}]}');
+  return rendered;
+}
+
+checks.push(['a failing request does not strand another tab', otherTabSurvivesAFailure()]);
 
 const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
 if (failed.length) {
