@@ -67,6 +67,33 @@ not apply are dropped from the output.
    repeat once per list item.
 4. Minifies with esbuild (`safari11`, ASCII output).
 
+## Deploy
+
+The app is served from GitHub Pages, published by the `deploy` job in
+`.github/workflows/build.yml`. It is **manual** — run it from the Actions tab.
+The Apple TV client re-fetches its bundle from the published URL on every
+launch, so whatever is live is what every user runs immediately; there is no
+staged rollout to hide a bad build behind.
+
+The published tree is only what the app fetches at runtime:
+
+| File | Read by |
+|---|---|
+| `bundle.js`, `bundle.min.js`, `application.js` | The boot URL. All three are the same build — the host may use any of these names, and the published tree has no `js/` directory. |
+| `img/imdb.png`, `img/kinopoisk.png`, `img/kinopub.png` | Per-item rating rows. The other images are inlined into the bundle. |
+| `CHANGELOG` | `KP.showHistory()` |
+| `VERSION` | `KP.checkNewVersion()`, compared against the baked-in `APP_VERSION` |
+
+Because `VERSION` is compared against `APP_VERSION`, the two must be bumped
+together or every client will show the "new version, restart" prompt forever.
+
+Set `API_ENCODED`, `API_LEGACY_ENCODED` and `API_EXT2_LEGACY` as repository
+secrets if the deployed build needs endpoints other than the defaults in
+`js/consts.js`. For a custom domain, prefer Settings → Pages; the optional
+`PAGES_CNAME` repository variable writes a `CNAME` into the artifact instead.
+A domain can only be claimed by one repository, so a fork must not reuse the
+upstream's.
+
 ## Checks
 
 Three checks run before every build, each aimed at a failure mode this codebase
