@@ -44,22 +44,23 @@ var Network = (function() {
                     Log.sendLog('Token n status: ' + xhr.status + ' ' + xhr.responseText)
                     if (!Auth.check()) { showActivationPage(); }
                 } else if (status == 200) {
-                    var result = xhr.responseText ? Utils.parseJSON(xhr) : xhr;
-                    if (result === undefined) {
-                        retryRequests.push({'options' : options, 'callback' : callback})
-                        Ajax.abortAll();
-                        showErrorMessage('Некорректный ответ сервера.')
-                        if (callback) { callback(null, null, xhr) }
-                        return;
+                    var parsed = xhr.responseText ? Utils.parseJSON(xhr) : xhr;
+                    var unparseable = (parsed === undefined);
+                    if (unparseable) {
+                        // Pass the xhr through, matching what the empty-body case
+                        // already does — callers that check result.status still work,
+                        // and a request nobody is waiting on stays silent.
+                        console.log('Unparseable 200 for "' + key + '", passing the response through');
                     }
+                    var result = unparseable ? xhr : parsed;
 
-                    if (xhr.responseText && result && typeof result.error !== 'undefined') {
+                    if (!unparseable && xhr.responseText && result && typeof result.error !== 'undefined') {
                         retryRequests.push({'options' : options, 'callback' : callback})
                         Ajax.abortAll();
                         showErrorMessage(result.error)
                         if (callback) { callback(null, null, xhr) }
                     } else {
-                        Cache.set(key, result, 60);
+                        if (!unparseable) { Cache.set(key, result, 60); }
                         if (callback) { callback(result, options) }
                     }
                 } else {

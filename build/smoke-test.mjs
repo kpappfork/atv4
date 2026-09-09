@@ -22,6 +22,8 @@ const REQUIRED = [
 ];
 
 const store = new Map();
+// Drives the XHR stub so Network.loadItemsFrom's branches can be exercised.
+const net = { response: { status: 200, responseText: '{}' }, modals: 0, aborts: 0 };
 const sandbox = {
   console: { log() {}, error() {}, warn() {} },
   setTimeout() {}, clearTimeout() {}, setInterval() {}, clearInterval() {},
@@ -38,9 +40,23 @@ const sandbox = {
     getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v),
     removeItem: (k) => store.delete(k),
   },
-  XMLHttpRequest: class { open() {} send() {} setRequestHeader() {} abort() {} },
+  XMLHttpRequest: class {
+    constructor() { this.status = 0; this.responseText = ''; }
+    open() {} setRequestHeader() {}
+    abort() { net.aborts++; }
+    send() {
+      this.status = net.response.status;
+      this.responseText = net.response.responseText;
+      if (this.onload) this.onload();
+    }
+  },
   DOMParser: class { parseFromString() { return {}; } },
-  navigationDocument: { documents: [], pushDocument() {}, replaceDocument() {} },
+  navigationDocument: {
+    documents: [],
+    pushDocument() { net.modals++; },
+    replaceDocument() { net.modals++; },
+    presentModal() { net.modals++; },
+  },
   getActiveDocument: () => ({}),
   evaluateScripts: () => {},
 };
@@ -105,6 +121,32 @@ const checks = [
   ['non-http schemes are kept', parsed[2] && parsed[2].url === 'rtmp://example.com/live/3'],
   ['#EXTVLCOPT is not treated as a URL', parsed[2] && parsed[2].title === 'Третий'],
 ];
+// Closing the player fires watching/marktime with no callback. A 200 whose body
+// is not JSON must stay silent there — it used to raise "Некорректный ответ
+// сервера" and abort every in-flight request.
+sandbox.API.setToken('smoke-test');
+function drive(responseText, status = 200) {
+  net.response = { status, responseText };
+  net.modals = 0;
+  net.aborts = 0;
+  sandbox.Cache.remove('watchingmarktimemarktimeundefinedpage0');
+  sandbox.Network.loadItemsFrom(
+    { items: 'watching', from: 'marktime', id: 'marktime', filters: { id: 1 } },
+    () => {}, true);
+  return { modals: net.modals, aborts: net.aborts };
+}
+const quiet = (r) => r.modals === 0 && r.aborts === 0;
+const alerts = (r) => r.modals === 1 && r.aborts === 1;
+
+checks.push(
+  ['unparseable 200 stays silent', quiet(drive('OK\n'))],
+  ['whitespace-only 200 stays silent', quiet(drive('\n  '))],
+  ['empty 200 stays silent', quiet(drive(''))],
+  ['valid JSON 200 stays silent', quiet(drive('{"items":[]}'))],
+  ['200 carrying {"error"} still alerts', alerts(drive('{"error":"boom"}'))],
+  ['HTTP 502 still alerts', alerts(drive('', 502))],
+);
+
 const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
 if (failed.length) {
   console.error(`✖ behaviour check failed: ${failed.join('; ')}`);

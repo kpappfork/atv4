@@ -30,7 +30,7 @@ var Utils = {
     parseJSON(xhr, fallback) {
         try {
             var text = (xhr && typeof xhr === 'object') ? xhr.responseText : xhr;
-            if (!text) { return fallback; }
+            if (!text || !String(text).trim()) { return fallback; }
             var parsed = JSON.parse(text);
             return (parsed === null || parsed === undefined) ? fallback : parsed;
         } catch (e) {
