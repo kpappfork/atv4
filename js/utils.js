@@ -11,6 +11,15 @@ var Utils = {
     // Escapes a fragment for LSParser/DOMParser. Unlike a blanket /&/g pass this
     // leaves existing entities (&amp; &lt; &#171; ...) alone instead of turning
     // them into visible "&amp;lt;" text.
+    // For plain TEXT that gets inserted into markup (CHANGELOG, plots, comments,
+    // biographies). Unlike escapeForParser this escapes < and >, which would
+    // otherwise reach the XML parser as raw markup and throw.
+    escapeText(string) {
+        return String(string == null ? '' : string)
+            .replace(/&(?!(?:[a-zA-Z][a-zA-Z0-9]*|#[0-9]+|#[xX][0-9a-fA-F]+);)/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+    },
     escapeForParser(string) {
         return String(string == null ? '' : string)
             .replace(/&(?!(?:[a-zA-Z][a-zA-Z0-9]*|#[0-9]+|#[xX][0-9a-fA-F]+);)/g, "&amp;")
@@ -151,8 +160,12 @@ var Utils = {
         var parser = Presenter.activeParser(doc);
         var element = (elementTag) ? parser.doc.getElementsByTagName(elementTag).item(0) : parser.doc.getElementById(elementID);
         if (!element) { console.log('replaceElement: no target for ' + (elementTag || elementID)); return; }
-        parser.lsInput.stringData = Utils.escapeForParser(string);
-        parser.lsParser.parseWithContext(parser.lsInput, element, action);
+        try {
+            parser.lsInput.stringData = Utils.escapeForParser(string);
+            parser.lsParser.parseWithContext(parser.lsInput, element, action);
+        } catch (e) {
+            console.log('replaceElement: could not parse fragment for ' + (elementTag || elementID) + ': ' + e);
+        }
     },
     replaceCdn(url) {
         if (!KINOPUB.oldCdnUrl) {

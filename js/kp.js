@@ -1081,7 +1081,7 @@ var KP = (function() {
                 var template = Templates.settingsPage(deviceName);
                 replaceElement(template, "document", null, 5, doc);
                 loadChangelog(function() {
-                    replaceElement(changelog, null, "changelog", 2);
+                    replaceElement(Utils.escapeText(changelog), null, "changelog", 2);
                 });
                 API.getUserInfo(function(result) {
                     var regRusDate = Utils.rusDate(result.user.reg_date * 1000);

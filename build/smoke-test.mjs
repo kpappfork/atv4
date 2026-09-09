@@ -84,6 +84,17 @@ const checks = [
   ['spoiler replaces every occurrence',
     Utils.spoiler('a <spoiler>x</spoiler> b <spoiler>y</spoiler>') === 'a [SPOILER] b [SPOILER]'],
   ['parseJSON survives an empty body', Utils.parseJSON({ responseText: '' }, 'fb') === 'fb'],
+  // Regression: the CHANGELOG is plain text fed to an XML parser. Raw < or >
+  // reaching parseWithContext threw, which broke the settings page and wedged
+  // every page opened afterwards.
+  ['escapeText escapes angle brackets',
+    Utils.escapeText('a & b < c > d') === 'a &amp; b &lt; c &gt; d'],
+  ['escapeText keeps existing entities',
+    Utils.escapeText('&amp; &#171; x') === '&amp; &#171; x'],
+  ['escapeForParser still passes markup through untouched',
+    Utils.escapeForParser('<title>x</title>') === '<title>x</title>'],
+  ['the real CHANGELOG survives escaping',
+    !/[<>]/.test(Utils.escapeText(readFileSync(join(ROOT, 'CHANGELOG'), 'utf8')).replace(/&lt;|&gt;/g, ''))],
   ['md5 is functional', sandbox.md5('abc') === '900150983cd24fb0d6963f7d28e17f72'],
   // M3U parsing
   ['playlist yields every channel', parsed.length === 3],

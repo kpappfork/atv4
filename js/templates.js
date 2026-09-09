@@ -73,8 +73,8 @@ var Templates = {
         return `
             <document>
                 <descriptiveAlertTemplate>
-                    <title>${title}</title>
-                    <description>${Utils.decodeCharacters(text)}</description>
+                    <title>${Utils.escapeText(title)}</title>
+                    <description>${Utils.escapeText(Utils.decodeCharacters(text))}</description>
                     ${buttons}
                 </descriptiveAlertTemplate>
             </document>
@@ -88,8 +88,8 @@ var Templates = {
         return `
                 <document>
                     <alertTemplate>
-                        <title>${title}</title>
-                        <description>${desc}</description>
+                        <title>${Utils.escapeText(title)}</title>
+                        <description>${Utils.escapeText(desc)}</description>
                         ${buttons}
                     </alertTemplate>
                 </document>
