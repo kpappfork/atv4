@@ -6,7 +6,8 @@ var AfterLoad = (function() {
         get() {
             var runOptions = localStorage.getItem(KEY);
             if (runOptions) {
-                runAfterLoad = JSON.parse(runOptions);
+                // Corrupt storage here used to throw during initApp.
+                runAfterLoad = Utils.parseJSON(runOptions, undefined);
                 AfterLoad.remove();
             }
         },

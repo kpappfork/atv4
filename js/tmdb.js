@@ -15,7 +15,8 @@ var TMDB = (function() {
             console.log(themovieDBAuthUrl)
             var _callback = function(themovieDBTemplateXHR) {
               if (themovieDBTemplateXHR && themovieDBTemplateXHR.status == 0) { callback(null); return; }
-              var themovieDBResult = JSON.parse(themovieDBTemplateXHR.responseText);
+              var themovieDBResult = Utils.parseJSON(themovieDBTemplateXHR, null);
+              if (!themovieDBResult) { callback(null); return; }
               console.log(themovieDBResult);
               Cache.set(themovieDBAuthUrl, themovieDBResult, 60);
               callback(themovieDBResult);

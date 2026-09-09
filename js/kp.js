@@ -14,7 +14,7 @@ var KP = (function() {
     ]
     var optionsLibrary2 = [
         { title: 'Последние добавленные', sort: '-created' },
-        { title: 'Последние обновленные', sort: '--updated' },
+        { title: 'Последние обновленные', sort: '-updated' },
         { title: 'По кол-ву просмотров', sort: '-views' },
         { title: 'По названию', sort: 'title' },
         { title: 'По году', sort: '-year' },
@@ -629,8 +629,8 @@ var KP = (function() {
             });
 
             API.getExtItem(result.item.id, function(xhr) {
-                var json = JSON.parse(xhr.responseText);
-                if (json.item.age_rating >= 0) {
+                var json = Utils.parseJSON(xhr, null);
+                if (json && json.item && json.item.age_rating >= 0) {
                     cachedResult.item.age_rating = json.item.age_rating
                     var ageBadge = MovieTemplates.fragments.badge(json.item.age_rating + '+');
                     lsInput.stringData = Utils.escapeForParser(ageBadge);
@@ -642,9 +642,8 @@ var KP = (function() {
             });
 
             API.getCollectionForItem(result.item.id, function(xhr) {
-                var json = JSON.parse(xhr.responseText);
-                console.log(json);
-                if (json.items && json.items.length > 0) {
+                var json = Utils.parseJSON(xhr, null);
+                if (json && json.items && json.items.length > 0) {
                     var collections = json.items.map(item => MovieTemplates.fragments.collectionsCard(item));
                     var item = { title: "В подборках", id: "collections" }
                     var options = { movies: collections.join(''), item: item };
@@ -656,14 +655,16 @@ var KP = (function() {
 
             setTimeout(function() {
                 API.getSimilar(result.item.id, function(xhr) {
-                    var similarResult = JSON.parse(xhr.responseText);
+                    var similarResult = Utils.parseJSON(xhr, null);
+                    if (!similarResult) { return; }
                     var similarMovies = MovieTemplates.fragments.similar(similarResult);
                     if (similarMovies != "") {
                         lsInput.stringData = Utils.escapeForParser(similarMovies);
                         lsParser.parseWithContext(lsInput, doc.getElementById('ratings'), 3);
                     } else {
                         API.getSimilarInGenre(result.item.genres[0].id, result.item.type, function(xhr) {
-                            var moreResult = JSON.parse(xhr.responseText);
+                            var moreResult = Utils.parseJSON(xhr, null);
+                            if (!moreResult || !moreResult.items || !moreResult.items.length) { return; }
                             var moreMovies = MovieTemplates.fragments.similar(moreResult, 'Больше из жанра ' + moreResult.items[0].genres[0].title);
                             if (moreMovies != "") {
                                 lsInput.stringData = Utils.escapeForParser(moreMovies);
@@ -675,7 +676,8 @@ var KP = (function() {
 
                 if (result.item.comments > 0) {
                     API.getComments(result.item.id, function(xhr) {
-                        var commentResult = JSON.parse(xhr.responseText);
+                        var commentResult = Utils.parseJSON(xhr, null);
+                        if (!commentResult || !commentResult.comments) { return; }
                         var bestComment = MovieTemplates.fragments.bestComment(commentResult);
                         lsInput.stringData = Utils.escapeForParser(bestComment);
                         lsParser.parseWithContext(lsInput, doc.getElementById('ratingSection'), 1);
@@ -686,7 +688,8 @@ var KP = (function() {
                     var type = (isSerial) ? 'shows' : 'movies';
                     API.getTraktItemByIMDB(imdb, type, function(xhr) {
                         if (xhr.status == 200) {
-                            var traktResult = JSON.parse(xhr.responseText);
+                            var traktResult = Utils.parseJSON(xhr, null);
+                            if (!traktResult) { return; }
                             var traktRaiting = MovieTemplates.fragments.ratingCard('TraktTV', (Math.round(traktResult.rating * 100) / 100).toFixed(1), Math.round(traktResult.rating) / 10, traktResult.votes, imdb);
                             lsInput.stringData = Utils.escapeForParser(traktRaiting);
                             var elements = doc.getElementsByTagName('ratingCard')
@@ -1401,14 +1404,16 @@ var KP = (function() {
         },
         toggleWatching(id, video, season) {
             API.getItem(id, function(xhr) {
-                var result = JSON.parse(xhr.responseText)
+                var result = Utils.parseJSON(xhr, null);
+                if (!result || !result.item) { return; }
                 Trakt.watchedSeason(result.item.imdb, season, video);
                 API.toggleWatching(id, video, season);
             });
         },
         addToWatchList(id) {
             API.getItem(id, function(xhr) {
-                var result = JSON.parse(xhr.responseText)
+                var result = Utils.parseJSON(xhr, null);
+                if (!result || !result.item) { return; }
                 Trakt.syncWatchlist(result);
                 API.toggleWatchlist(id);
             });

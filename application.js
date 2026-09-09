@@ -1,5 +1,5 @@
 var baseURL;
-var APP_VERSION = "1.61.6";
+var APP_VERSION = "1.61.7";
 var MenuItemDoc;
 var cachedResult;
 var globalCheckAuthInterval;
@@ -293,7 +293,11 @@ function showActivationPage() {
     API.getDeviceCode(function(xhr) {
         console.log(xhr)
         if (xhr.status == 200) {
-            var json = JSON.parse(xhr.responseText)
+            var json = Utils.parseJSON(xhr, null)
+            if (!json || !json.code) {
+                showAlert("Не удалось получить код активации. Попробуйте позднее.", buttons);
+                return;
+            }
             if (authErrors.length > 0) {
                 json.errors = authErrors.join('\n');
                 authErrors = [];
@@ -309,8 +313,8 @@ function showActivationPage() {
                     if (!wait && !success) {
                         API.getDeviceCode(function(xhr) {
                             var description = getActiveDocument().documentElement.getElementsByTagName("description").item(0),
-                                json = JSON.parse(xhr.responseText);
-                            if (description) {
+                                json = Utils.parseJSON(xhr, null);
+                            if (description && json && json.user_code) {
                                 description.textContent = json.user_code;
                                 code = json.code;
                             }

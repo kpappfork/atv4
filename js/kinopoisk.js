@@ -20,7 +20,8 @@ var Kinopoisk = {
         kinopoiskTemplateXHR.setRequestHeader('X-TIMESTAMP', xDate);
         //kinopoiskTemplateXHR.timeout = 2000;
         kinopoiskTemplateXHR.onload = function() {
-            var kinopoiskResult = JSON.parse(kinopoiskTemplateXHR.responseText);
+            var kinopoiskResult = Utils.parseJSON(kinopoiskTemplateXHR, null);
+            if (!kinopoiskResult) { return; }
             console.log(kinopoiskResult);
             callback(kinopoiskResult);
         }

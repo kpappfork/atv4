@@ -67,7 +67,17 @@ var AppSettings = (function () {
     }
 
     function getSettingsFromStorage(defaultSettings = {}) {
-        const settings = JSON.parse(AppStorage.getItem(KEYS.settings) || '{}');
+        // Runs while the module loads. A bare JSON.parse here meant corrupt
+        // stored settings threw before the app existed, and nothing inside the
+        // app could clear them — it simply would not start.
+        let settings = {};
+        try {
+            const raw = AppStorage.getItem(KEYS.settings);
+            const parsed = raw ? JSON.parse(raw) : {};
+            if (parsed && typeof parsed === 'object') { settings = parsed; }
+        } catch (e) {
+            console.log('Stored settings were unreadable, falling back to defaults: ' + e);
+        }
         console.log(settings);
         const validatedSettings = Object
             .keys(settings)

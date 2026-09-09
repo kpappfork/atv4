@@ -108,7 +108,8 @@ var Trakt = (function() {
       traktOauth() {
           API.traktDeviceCode(function(xhr) {
             if (xhr.status == 200) {
-              var result = JSON.parse(xhr.responseText);
+              var result = Utils.parseJSON(xhr, null);
+              if (!result || !result.user_code) { return; }
               var template = Templates.showCode(result.user_code, 'Откройте ' + result.verification_url + ' и введите отображаемый ниже код для регистрации устройства.');
               var doc = Presenter.makeDocument(template);
               Presenter.modalDocument(doc);

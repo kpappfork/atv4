@@ -13,7 +13,8 @@ var FanArt = (function() {
             console.log(fanartAuthUrl)
             var _callback = function(fanartTemplateXHR) {
               if (fanartTemplateXHR && fanartTemplateXHR.status == 0) { return }
-              var fanartResult = JSON.parse(fanartTemplateXHR.responseText);
+              var fanartResult = Utils.parseJSON(fanartTemplateXHR, null);
+              if (!fanartResult) { return; }
               console.log(fanartResult);
               Cache.set(fanartAuthUrl, fanartResult, 60);
               callback(fanartResult);

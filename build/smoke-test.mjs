@@ -232,6 +232,35 @@ function otherTabSurvivesAFailure() {
 
 checks.push(['a failing request does not strand another tab', otherTabSurvivesAFailure()]);
 
+// AppSettings parses stored settings while the module loads. A throw there
+// happened before the app existed, so corrupt storage meant it could not start
+// and nothing inside the app could clear it.
+function bootsWith(storedSettings) {
+  const s = new Map();
+  if (storedSettings !== null) s.set('localStorage_kpSettings', storedSettings);
+  const sb = { console: { log() {}, error() {}, warn() {} },
+    setTimeout() {}, setInterval() {}, clearTimeout() {}, clearInterval() {},
+    App: {}, Device: sandbox.Device,
+    userDefaults: { getData: (k) => s.get(k), setData: (k, v) => s.set(k, v), removeData: (k) => s.delete(k) },
+    localStorage: { getItem: (k) => s.get(k) ?? null, setItem: (k, v) => s.set(k, v), removeItem: (k) => s.delete(k) },
+    XMLHttpRequest: class { open() {} send() {} setRequestHeader() {} abort() {} },
+    DOMParser: class { parseFromString() { return {}; } },
+    navigationDocument: { documents: [], pushDocument() {}, replaceDocument() {} },
+    getActiveDocument: () => ({}), evaluateScripts: () => {} };
+  sb.globalThis = sb;
+  try {
+    vm.runInNewContext(readFileSync(join(ROOT, 'bundle.js'), 'utf8'), sb);
+    const q = sb.AppSettings && sb.AppSettings.get('userQuality');
+    return !!(q && q.id);
+  } catch { return false; }
+}
+
+checks.push(
+  ['boots with corrupt stored settings', bootsWith('not json at all')],
+  ['boots with stored settings of the wrong type', bootsWith('[1,2,3]')],
+  ['boots with valid stored settings', bootsWith(JSON.stringify({ userQuality: { id: '720p', name: '720' } }))],
+);
+
 const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
 if (failed.length) {
   console.error(`✖ behaviour check failed: ${failed.join('; ')}`);
