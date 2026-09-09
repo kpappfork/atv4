@@ -94,6 +94,40 @@ secrets if the deployed build needs endpoints other than the defaults in
 A domain can only be claimed by one repository, so a fork must not reuse the
 upstream's.
 
+### Keeping personal accounts off workflow runs
+
+Every workflow run records an actor, and the actor is always the account behind
+the credential that triggered it:
+
+| Trigger | Actor |
+|---|---|
+| `push` | the account whose credentials pushed |
+| `workflow_dispatch` | the account that clicked "Run workflow" |
+| `repository_dispatch` | the account owning the token that sent the dispatch |
+| `schedule` | the account that last modified the workflow file |
+
+`kpappfork` is an organisation, and organisations cannot push or author commits —
+only user accounts can. So keeping a personal account out of the run history means
+routing pushes and deploys through a **machine account** that belongs to the org:
+
+1. Create a separate GitHub user for the org (e.g. `kpappfork-ci`) and invite it
+   with write access to this repository.
+2. Give it a fine-grained personal access token scoped to this repository, with
+   `Contents: read and write` and `Metadata: read`.
+3. Push with that account's credentials rather than your own, so `push`-triggered
+   runs are attributed to it.
+4. Deploy headlessly instead of clicking "Run workflow", so the deploy is
+   attributed to the token's owner:
+
+   ```bash
+   GH_TOKEN=<machine-account-token> \
+     gh api repos/kpappfork/atv4/dispatches -f event_type=deploy
+   ```
+
+The workflow itself never reads `github.actor`, never prints the environment, and
+touches secrets only through the `secrets` context — the actor in the run list is
+GitHub's own metadata, not something the job discloses.
+
 ## Checks
 
 Three checks run before every build, each aimed at a failure mode this codebase

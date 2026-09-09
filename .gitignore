@@ -13,6 +13,12 @@ Thumbs.db
 .env.*
 !.env.example
 
+# App binaries — never belong in the served repo
+*.ipa
+*.app
+*.dSYM/
+*.xcarchive/
+
 # Tool output
 npm-debug.log*
 yarn-error.log*

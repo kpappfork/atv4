@@ -5,7 +5,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Clicking "Run workflow" attributes the run to whoever clicked. repository_dispatch
+  # attributes it to the account owning the token that sent it, so a machine account
+  # can deploy without a personal account appearing as the actor. See README.
   workflow_dispatch:
+  repository_dispatch:
+    types: [deploy]
 
 permissions:
   contents: read
@@ -44,9 +49,12 @@ jobs:
   deploy:
     name: Publish to GitHub Pages
     # Manual only: the app re-fetches its bundle from this URL on every launch,
-    # so whatever is published is what every user runs immediately. Run this
-    # from the Actions tab once main looks good.
-    if: github.event_name == 'workflow_dispatch'
+    # so whatever is published is what every user runs immediately. Trigger it
+    # from the Actions tab, or headlessly with a repository_dispatch of type
+    # "deploy" (see README) once main looks good.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'repository_dispatch' && github.event.action == 'deploy')
     needs: build
     runs-on: ubuntu-latest
     permissions:
