@@ -20,8 +20,16 @@ var KP = (function() {
         { title: 'По году', sort: '-year' },
         { title: 'По рейтингу Кинопаба', sort: '-rating' },
         { title: 'По рейтингу Кинопоиска', sort: '-kinopoisk_rating' },
-        { title: 'По рейтингу IMDB', sort: '-imdb_rating' }
+        { title: 'По рейтингу IMDB', sort: '-imdb_rating' },
+        { title: 'По кол-ву зрителей', sort: '-watchers' }
     ]
+
+    // Types shown on their own menu item already; the rest are offered under "Ещё".
+    var primaryTypes = ['movie', 'serial'];
+
+    function isSerialType(type) {
+        return type == 'serial' || type == 'docuserial' || type == 'tvshow';
+    }
 
     function makeDocument(title) {
         var template = Templates.loading(title);
@@ -510,6 +518,48 @@ var KP = (function() {
             currentType = itemsToLoad[0].type
             makeDocument('Загрузка фильмов');
             movieOrSerialPage(itemsToLoad);
+        },
+
+        // Generic page for any content type the API reports (concerts, TV shows,
+        // 3D, documentaries...). Same six-slot shape movieOrSerialPage expects,
+        // with slot 5 as the "watching" shelf its appear handler refreshes.
+        typePage(type, title) {
+            type = decodeURIComponent(type);
+            title = decodeURIComponent(title || type);
+            var name = title.toLowerCase();
+            var watchingFrom = isSerialType(type) ? 'serials' : 'movies';
+            var itemsToLoad = [
+                { items: 'items', type: type, from: 'hot', id: 'hot', title: 'Горячие ' + name, async: false },
+                { items: 'items', type: type, from: 'popular', id: 'popular', title: 'Популярные ' + name },
+                { items: 'items', type: type, from: 'fresh', id: 'fresh', title: 'Новые ' + name },
+                { items: 'items', type: type, from: null, id: 'watchers', title: 'Больше всего зрителей', filters: { sort: '-watchers' } },
+                { items: 'items', type: type, from: null, id: '4k', title: '4K ' + name, filters: { quality: '4k', sort: '-updated' } },
+                { items: 'watching', type: type, from: watchingFrom, id: 'unwatched', title: 'Недосмотренные ' + name }
+            ];
+            currentType = type;
+            makeDocument('Загрузка: ' + title);
+            movieOrSerialPage(itemsToLoad);
+        },
+
+        // Driven off the live `types` reference rather than a hardcoded list, so a
+        // type appears only if this account's API actually serves it.
+        moreTypesPage() {
+            currentType = 'moreTypes';
+            makeDocument('Загрузка разделов');
+            var doc = docs[currentType];
+            doc.addEventListener("load", function() {
+                Network.loadItemsFrom({ items: 'types', id: 'types' }, function(result, options) {
+                    if (!result || !result.items) { return; }
+                    var extra = result.items.filter(function(item) {
+                        return primaryTypes.indexOf(item.id) == -1 && item.id != '4k';
+                    });
+                    var rows = extra.map(function(item) {
+                        return Templates.fragments.typeRow(item);
+                    }).join('');
+                    if (!rows) { rows = '<listItemLockup><title>Разделы недоступны</title></listItemLockup>'; }
+                    replaceElement(Templates.typesPage(rows), "document", null, 5, doc);
+                }, true);
+            });
         },
 
         childMoviesPage() {

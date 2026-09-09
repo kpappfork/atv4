@@ -1,5 +1,5 @@
 var baseURL;
-var APP_VERSION = "1.60.1";
+var APP_VERSION = "1.61.0";
 var MenuItemDoc;
 var cachedResult;
 var globalCheckAuthInterval;
@@ -259,6 +259,9 @@ function updateMenuItem(menuItem, targetFunction) {
             break;
         case 'ShowsPage':
             KP.showsPage();
+            break;
+        case 'MoreTypes':
+            KP.moreTypesPage();
             break;
         case 'MySubscribes':
             KP.mySubscribesPage();
