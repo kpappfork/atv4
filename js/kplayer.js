@@ -328,7 +328,6 @@ var KPlayer = (function() {
                     tinyPlay(JSON.stringify(mediaItems));
                 }
             }
-            skipCache = true;
         },
 
         playTrailer(url) {

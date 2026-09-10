@@ -1,5 +1,5 @@
 var baseURL;
-var APP_VERSION = "1.65.0";
+var APP_VERSION = "1.65.1";
 var MenuItemDoc;
 var cachedResult;
 var globalCheckAuthInterval;
@@ -8,7 +8,6 @@ var runAfterLoad;
 var isPlaying = false;
 var authErrors = [];
 var activationAttempts = 0;
-var skipCache = false;
 var DEV = false;
 var menuDoc;
 var hashConfig = {};

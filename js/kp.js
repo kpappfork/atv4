@@ -562,8 +562,11 @@ var KP = (function() {
             title = decodeURIComponent(title || "Загрузка")
             if (!callback) { Presenter.showLoading(title, callback && Utils.isNative()) } //fix dismiss loader for native player
             var itemToLoad = { items: 'items', type: type, from: id, id: id, title: title }
-            if (callback) { Network.loadItemsFrom(itemToLoad, callback); } else {
-                Network.loadItemsFrom(itemToLoad, this.showDetailPage);
+            // Always fetch: this response carries state the user toggles on the page
+            // itself (watchlist, watched, rating), so a cached copy shows the state
+            // from before their last action.
+            if (callback) { Network.loadItemsFrom(itemToLoad, callback, true); } else {
+                Network.loadItemsFrom(itemToLoad, this.showDetailPage, true);
             }
         },
 
@@ -580,7 +583,6 @@ var KP = (function() {
             //console.log(template);
             var doc = Presenter.makeDocument(template, true);
             doc.load = true;
-            skipCache = false;
             Presenter.pushDocument(doc);
             var domImplementation = doc.implementation;
             var lsParser = domImplementation.createLSParser(1, null);
@@ -598,7 +600,6 @@ var KP = (function() {
                 AfterLoad.set({ id: result.item.id, type: type, action: 'show' });
                 Network.loadItemsFrom(itemToLoad, function(result, options) {
                     cachedResult = result;
-                    skipCache = false;
                     if (isSerial) {
                         MovieTemplates.fragments.seriesButtonAndSeasons(result, isNew, null, function(updateString, sIndex) {
                             if (sIndex != undefined) {
@@ -610,7 +611,7 @@ var KP = (function() {
                             lsParser.parseWithContext(lsInput, item, 5);
                         });
                     }
-                }, skipCache);
+                }, true);
                 // setTimeout(function () {
                 //     if (result.item.trailer) {
                 //         if (result.item.trailer.url) {
@@ -1395,7 +1396,6 @@ var KP = (function() {
             var labelWatch = (state == '1') ? '  ●' : '';
             activeParser.lsInput.stringData = '<decorationLabel id ="' + id + '">' + duration + labelWatch + '</decorationLabel>';
             activeParser.lsParser.parseWithContext(activeParser.lsInput, selectedButton, 5);
-            skipCache = true;
         },
         sendMarktime(id, time, video, season) {
             var itemToLoad = {
