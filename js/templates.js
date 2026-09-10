@@ -221,9 +221,6 @@ var Templates = {
                         </style>
                     </head>
                     <catalogTemplate>
-                        <banner>
-                            <title>Мои</title>
-                        </banner>
                         <list>
                             <section>
                                 <header><title>Недосмотренные</title></header>
@@ -256,9 +253,6 @@ var Templates = {
                         </style>
                     </head>
                     <stackTemplate>
-                        <banner>
-                            <title>Библиотека</title>
-                        </banner>
                         <collectionList>
                             <shelf>
                                 <section>
@@ -454,9 +448,6 @@ var Templates = {
                         </style>
                     </head>
                     <stackTemplate>
-                        <banner>
-                            <title>ТВ</title>
-                        </banner>
                         <collectionList>
                             <grid>
                                 <header><title>Плейлисты (только ОТТ и edem)</title></header>

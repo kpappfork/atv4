@@ -1,5 +1,5 @@
 var baseURL;
-var APP_VERSION = "1.65.1";
+var APP_VERSION = "1.65.2";
 var MenuItemDoc;
 var cachedResult;
 var globalCheckAuthInterval;
