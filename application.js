@@ -1,5 +1,5 @@
 var baseURL;
-var APP_VERSION = "1.64.0";
+var APP_VERSION = "1.65.0";
 var MenuItemDoc;
 var cachedResult;
 var globalCheckAuthInterval;
@@ -241,6 +241,7 @@ function menuBar() {
     doc.addEventListener("select", handleSelectEvent);
     Presenter.replaceDocument(doc, menuDoc);
     menuDoc = doc;
+    resetMenuItemDocuments();
 }
 
 function handleSelectEvent(event) {
@@ -251,8 +252,33 @@ function handleSelectEvent(event) {
     }
 }
 
+// A tab that has already been built keeps its document. Rebuilding it on every
+// selection reloaded the whole page — the "Загрузка ..." screen on each switch —
+// and swapping the document out from under the menu bar is what made the
+// highlight flick to the first tab.
+//
+// Freshness comes from two places. The volatile pages refresh themselves in
+// place through their own appear handler, with no document swap: Мои reloads
+// all four of its shelves, and Фильмы/Сериалы reload the unwatched shelf. The
+// slower-moving content is covered by rebuilding a tab that has not been
+// visited for a while.
+var builtMenuItems = {};
+var PAGE_MAX_AGE_MS = 10 * 60 * 1000;
+
+function resetMenuItemDocuments() {
+    builtMenuItems = {};
+    if (typeof KP !== 'undefined' && KP.invalidatePages) { KP.invalidatePages(); }
+}
+
 function updateMenuItem(menuItem, targetFunction) {
     var menuItemDocument = menuItem.parentNode.getFeature("MenuBarDocument");
+
+    // The page being left keeps its requests in flight otherwise.
+    if (typeof KP !== 'undefined' && KP.beginPageRequests) { KP.beginPageRequests(); }
+
+    var builtAt = builtMenuItems[targetFunction];
+    if (builtAt && (new Date().getTime() - builtAt) < PAGE_MAX_AGE_MS) { return; }
+
     switch (targetFunction) {
         case 'MoviesPage':
             KP.moviesPage();
@@ -281,6 +307,7 @@ function updateMenuItem(menuItem, targetFunction) {
         default:
             break;
     }
+    builtMenuItems[targetFunction] = new Date().getTime();
     menuItemDocument.setDocument(MenuItemDoc, menuItem);
 }
 

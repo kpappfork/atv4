@@ -24,15 +24,12 @@ var KP = (function() {
         { title: 'По кол-ву зрителей', sort: '-watchers' }
     ]
 
-    // Every tab switch goes through here, and nothing else does. Cancel the
-    // requests still outstanding for the page being left so the new page's own
-    // requests are not stuck behind them in the 6-connection pool.
+    // Requests are grouped per page so the outgoing page's work can be cancelled
+    // on a tab switch — otherwise it keeps the 6-connection pool busy and the
+    // next page's first request queues behind it.
     var pageGroup = 0;
 
     function makeDocument(title) {
-        var leaving = pageGroup;
-        pageGroup = Ajax.newGroup();
-        if (leaving) { Ajax.abortGroup(leaving); }
         var template = Templates.loading(title);
         var doc = Presenter.makeDocument(template, true);
         MenuItemDoc = doc;
@@ -1143,6 +1140,8 @@ var KP = (function() {
                 }
 
                 Presenter.dismissModal();
+                // Kept pages were built with the old settings.
+                resetMenuItemDocuments();
                 activeParser.lsInput.stringData = '<decorationLabel>' + value.name + '</decorationLabel>';
                 activeParser.lsParser.parseWithContext(activeParser.lsInput, activeParser.doc.getElementsByTagName("decorationLabel").item(id), 5);
                 if (key == settingKeys.cartoonMode) { initApp(); }
@@ -1497,6 +1496,19 @@ var KP = (function() {
         },
         saveTopShelf(items, options, title) {
             saveTopShelf(items, options, title)
+        },
+
+        // Called on every tab switch, including revisits that reuse their document.
+        beginPageRequests() {
+            var leaving = pageGroup;
+            pageGroup = Ajax.newGroup();
+            if (leaving) { Ajax.abortGroup(leaving); }
+        },
+
+        // A built tab keeps its document, so a settings change would otherwise
+        // leave stale pages behind. Dropping them makes the next visit rebuild.
+        invalidatePages() {
+            docs = {};
         }
     }
 }());
