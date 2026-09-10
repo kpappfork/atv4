@@ -300,6 +300,30 @@ checks.push(
   ['auth: 401 signs out', !sessionKeptWhen(401, '{"error":"unauthorized"}')],
 );
 
+// The connection pool is 6 per host and a page issues about that many, so a page
+// left mid-load kept the next page's first request queued behind it. Cancelling
+// must be scoped to the page being left: aborting everything is what used to
+// strand the page the user had just opened.
+function groupCancellationIsScoped() {
+  net.queue = true;
+  net.pending = [];
+  let oldPageCalledBack = false, newPageCalledBack = false;
+  const groupA = sandbox.Ajax.newGroup();
+  sandbox.Network.loadItemsFrom({ items: 'items', type: 'movie', from: 'hot', id: 'oldpage' },
+    () => { oldPageCalledBack = true; }, true);
+  sandbox.Ajax.newGroup();
+  sandbox.Network.loadItemsFrom({ items: 'items', type: 'serial', from: 'hot', id: 'newpage' },
+    () => { newPageCalledBack = true; }, true);
+  const aborted = sandbox.Ajax.abortGroup(groupA);
+  const pending = net.pending.slice();
+  net.queue = false;
+  pending.forEach((x) => x.settle(200, '{"items":[]}'));
+  // The page being left is cancelled; the page just opened still renders.
+  return aborted === 1 && !oldPageCalledBack && newPageCalledBack;
+}
+
+checks.push(['request cancellation is scoped to the page being left', groupCancellationIsScoped()]);
+
 const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
 if (failed.length) {
   console.error(`✖ behaviour check failed: ${failed.join('; ')}`);

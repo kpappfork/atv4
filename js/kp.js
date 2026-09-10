@@ -24,7 +24,15 @@ var KP = (function() {
         { title: 'По кол-ву зрителей', sort: '-watchers' }
     ]
 
+    // Every tab switch goes through here, and nothing else does. Cancel the
+    // requests still outstanding for the page being left so the new page's own
+    // requests are not stuck behind them in the 6-connection pool.
+    var pageGroup = 0;
+
     function makeDocument(title) {
+        var leaving = pageGroup;
+        pageGroup = Ajax.newGroup();
+        if (leaving) { Ajax.abortGroup(leaving); }
         var template = Templates.loading(title);
         var doc = Presenter.makeDocument(template, true);
         MenuItemDoc = doc;

@@ -1,5 +1,10 @@
 var Ajax = (function() {
     var requests = []
+    // Requests are tagged with the page that issued them so the previous page's
+    // work can be cancelled without touching anything else. The connection pool
+    // is 6 per host, and a page issues about that many, so a page left mid-load
+    // otherwise keeps the next page's first request queued behind it.
+    var currentGroup = 0
 
     function serialize (obj) {
         var str = [];
@@ -19,6 +24,7 @@ var Ajax = (function() {
 
         var xhr = new XMLHttpRequest();
         xhr.timeout = 10000;
+        xhr.__group = currentGroup;
         requests.push(xhr);
         var sep = (url.indexOf("?") == -1) ? "?" : "&";
         var postBody = (method == "POST") ? JSON.stringify(bParams) : null;
@@ -133,6 +139,30 @@ var Ajax = (function() {
             }
             return _query("POST", url, headers, params, params, callback, async, true);
         },
+        // Starts a new page group and returns its id.
+        newGroup: function() {
+            currentGroup++;
+            return currentGroup;
+        },
+
+        // Aborts only the requests issued under `id`. Aborted requests fire
+        // neither load nor error, which is what we want for a page the user has
+        // already left — nothing should render from it.
+        abortGroup: function(id) {
+            if (!id) { return 0; }
+            var victims = [];
+            var keep = [];
+            requests.forEach(function(request) {
+                if (request.__group === id) { victims.push(request); } else { keep.push(request); }
+            });
+            requests = keep;
+            victims.forEach(function(request) {
+                try { request.abort() } catch (e) { console.log('abort failed', e) }
+            });
+            if (victims.length) { console.log('Aborted ' + victims.length + ' request(s) from page ' + id); }
+            return victims.length;
+        },
+
         abortAll: function() {
             var pending = requests.slice();
             requests = [];
