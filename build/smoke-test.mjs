@@ -324,6 +324,30 @@ function groupCancellationIsScoped() {
 
 checks.push(['request cancellation is scoped to the page being left', groupCancellationIsScoped()]);
 
+// Everything used to be cached for 60 seconds in memory only, so a cold start
+// refetched even data that never changes, and nothing bounded the size.
+const C = sandbox.Cache;
+C.set('tier-a', { v: 1 }, C.TTL.reference, true);
+C.set('tier-b', { v: 2 }, C.TTL.listing);
+const persistedSmall = !!store.get('cache_tier-a');
+const notPersisted = !store.get('cache_tier-b');
+C.set('tier-big', { blob: 'x'.repeat(64 * 1024) }, C.TTL.reference, true);
+const bigRejected = !store.get('cache_tier-big') && !!C.get('tier-big');
+C.set('tier-nottl', { v: 3 });
+const missingTTLUsable = !!C.get('tier-nottl');
+const before = C.size();
+for (let i = 0; i < 400; i += 1) { C.set('bulk-' + i, { i }, C.TTL.listing); }
+const bounded = C.size() <= 250;
+
+checks.push(
+  ['cache: named lifetimes exist', C.TTL.reference > C.TTL.listing && C.TTL.artwork > C.TTL.listing],
+  ['cache: small persisted values are written', persistedSmall],
+  ['cache: unpersisted values stay in memory only', notPersisted],
+  ['cache: oversized values are not persisted but still cached', bigRejected],
+  ['cache: a missing TTL still yields a readable entry', missingTTLUsable],
+  ['cache: memory is bounded', bounded && before >= 0],
+);
+
 const failed = checks.filter(([, ok]) => !ok).map(([name]) => name);
 if (failed.length) {
   console.error(`✖ behaviour check failed: ${failed.join('; ')}`);

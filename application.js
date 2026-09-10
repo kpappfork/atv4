@@ -1,5 +1,5 @@
 var baseURL;
-var APP_VERSION = "1.63.1";
+var APP_VERSION = "1.64.0";
 var MenuItemDoc;
 var cachedResult;
 var globalCheckAuthInterval;
@@ -227,7 +227,7 @@ function initApp() {
     // Cache purger interval
     globalCachePurgerInterval = setInterval(function() {
         Cache.scan();
-    }, 5000);
+    }, 60000);
 
     if (!runAfterLoad) { AfterLoad.get(); }
     if (runAfterLoad) { run(runAfterLoad.id, runAfterLoad.type, runAfterLoad.action) }

@@ -19,6 +19,13 @@ Thumbs.db
 *.dSYM/
 *.xcarchive/
 
+# Stray shell artifacts and captured logs — these have twice been swept into a
+# commit by `git add -A`, once carrying an access token.
+$*
+__cmd.js
+*.log
+capture*.txt
+
 # Tool output
 npm-debug.log*
 yarn-error.log*

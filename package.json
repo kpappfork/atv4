@@ -1,6 +1,6 @@
 {
   "name": "atv4",
-  "version": "1.63.1",
+  "version": "1.64.0",
   "private": true,
   "description": "TVML/TVJS client — build suite for bundle.js",
   "repository": {
@@ -11,8 +11,9 @@
   "scripts": {
     "build": "npm run check && node build/build.mjs && node build/smoke-test.mjs",
     "build:dev": "node build/build.mjs --dev",
-    "check": "node build/build.mjs --check && node build/check-handlers.mjs && npm run lint",
+    "check": "node build/check-tracked.mjs && node build/build.mjs --check && node build/check-handlers.mjs && npm run lint",
     "check:handlers": "node build/check-handlers.mjs",
+    "check:tracked": "node build/check-tracked.mjs",
     "smoke": "node build/smoke-test.mjs",
     "lint": "eslint application.js js/ build/"
   },

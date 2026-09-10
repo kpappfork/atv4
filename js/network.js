@@ -66,7 +66,11 @@ var Network = (function() {
                         showErrorMessage(result.error)
                         if (callback) { callback(null, null, xhr) }
                     } else {
-                        if (!isFallback) { Cache.set(key, result, 60); }
+                        if (!isFallback) {
+                            // Reference data barely changes; shelves do. The caller
+                            // declares which this is.
+                            Cache.set(key, result, options.cacheTTL || Cache.TTL.listing, options.persist);
+                        }
                         if (callback) {
                             try { callback(result, options) }
                             catch (e) { console.log('Callback failed for "' + key + '": ' + e); }

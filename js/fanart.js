@@ -16,7 +16,7 @@ var FanArt = (function() {
               var fanartResult = Utils.parseJSON(fanartTemplateXHR, null);
               if (!fanartResult) { return; }
               console.log(fanartResult);
-              Cache.set(fanartAuthUrl, fanartResult, 60);
+              Cache.set(fanartAuthUrl, fanartResult, Cache.TTL.artwork, true);
               callback(fanartResult);
             }
 

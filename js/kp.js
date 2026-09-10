@@ -6,10 +6,10 @@ var KP = (function() {
     var itemForLibrary = { items: 'items', type: null, from: null, id: '', title: '', filters: {}, options2: 0 }
     var itemForActors = { items: 'items', id: 'actor', filters: {}, options2: 0 }
     var optionsLibrary = [
-        { items: 'types', title: 'Тип', selected: '', filters: { type: '' } },
-        { items: 'references\/video-quality', title: 'Качество', selected: '', filters: { quality: '' } },
-        { items: 'genres', title: 'Жанр', selected: '', filters: { genre: '' } },
-        { items: 'countries', title: 'Страны', selected: '', filters: { country: '' } },
+        { items: 'types', title: 'Тип', selected: '', filters: { type: '' }, cacheTTL: Cache.TTL.reference, persist: true },
+        { items: 'references\/video-quality', title: 'Качество', selected: '', filters: { quality: '' }, cacheTTL: Cache.TTL.reference, persist: true },
+        { items: 'genres', title: 'Жанр', selected: '', filters: { genre: '' }, cacheTTL: Cache.TTL.reference, persist: true },
+        { items: 'countries', title: 'Страны', selected: '', filters: { country: '' }, cacheTTL: Cache.TTL.reference, persist: true },
         { items: '', title: 'Год', selected: '', filters: { year: '' } }
     ]
     var optionsLibrary2 = [
@@ -462,8 +462,8 @@ var KP = (function() {
     return {
         loadReferences() {
             var itemsToLoad = [
-                { items: 'references', from: referencesType.server },
-                { items: 'references', from: referencesType.streaming }
+                { items: 'references', from: referencesType.server, cacheTTL: Cache.TTL.reference, persist: true },
+                { items: 'references', from: referencesType.streaming, cacheTTL: Cache.TTL.reference, persist: true }
             ]
             for (var index in itemsToLoad) {
                 Network.loadItemsFrom(itemsToLoad[index], function(result, options) {
@@ -932,7 +932,9 @@ var KP = (function() {
                     }
                     // Render the page regardless: a failed shelf must not leave it blank.
                     replaceElement(Templates.mySubscribesPage(showTemplate), "document", null, 5, doc);
+                    loadRemainingSubscribes();
                 }, true);
+                function loadRemainingSubscribes() {
                 Network.loadItemsFrom(itemsToLoad[1], function(result, options) {
                     if (!result || !Array.isArray(result.items) || !options) { return }
                     saveTopShelf(result.items, topShelfOptions.unwatched, options.title);
@@ -959,6 +961,7 @@ var KP = (function() {
                     var movies = getItemsTemplate(result, options);
                     replaceElement(`${movies.join('')}`, null, "history", 1, doc);
                 }, true);
+                }
             });
             doc.addEventListener("appear", function() {
                 console.log("appear");
